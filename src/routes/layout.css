@@ -1,3 +1,32 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+    --color-surface-950: #0a0a0f;
+    --color-surface-900: #111118;
+    --color-surface-800: #1a1a25;
+    --color-surface-700: #252535;
+    --color-surface-600: #2e2e45;
+    --color-accent-500: #6366f1;
+    --color-accent-400: #818cf8;
+    --color-accent-300: #a5b4fc;
+    --color-success-500: #22c55e;
+    --color-success-400: #4ade80;
+    --color-warning-500: #f59e0b;
+    --color-warning-400: #fbbf24;
+    --color-danger-500: #ef4444;
+    --color-danger-400: #f87171;
+    --color-ros-orange: #ff6b00;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    background-color: #0a0a0f;
+    color: #e2e8f0;
+}

@@ -1,9 +1,16 @@
 <script lang="ts">
-	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
+    import './layout.css';
+    import favicon from '$lib/assets/favicon.svg';
+    import AppShell from '$lib/components/layout/AppShell.svelte';
 
-	let { children } = $props();
+    let { children } = $props();
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
-{@render children()}
+<svelte:head>
+    <link rel="icon" href={favicon} />
+    <title>ROS2 Dashboard</title>
+</svelte:head>
+
+<AppShell>
+    {@render children()}
+</AppShell>
