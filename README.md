@@ -1,42 +1,89 @@
-# sv
+# IHM ROS2
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit dashboard for a ROS2 robot. Stores and serves telemetry data (battery, speed, IMU) via a PostgreSQL database.
 
-## Creating a project
+## Prerequisites
 
-If you're seeing this, you've probably already done this step. Congrats!
+- Node.js
+- Docker & Docker Compose
+
+## Database Setup
+
+1. Start PostgreSQL:
 
 ```sh
-# create a new project
-npx sv create my-app
+npm run db:start
 ```
 
-To recreate this project with the same configuration:
+This runs `db/docker-compose.yml` which starts a Postgres 16 container and executes `db/init.sql` to create the tables.
+
+2. Create a `.env` file at the project root:
+
+```
+DATABASE_URL=postgresql://ros2:ros2@localhost:5432/ros2
+```
+
+3. (Optional) Push the Drizzle schema to verify sync:
 
 ```sh
-# recreate this project
-npx sv@0.12.8 create --template minimal --types ts --add tailwindcss="plugins:typography,forms" prettier drizzle="database:postgresql+postgresql:postgres.js+docker:yes" --install npm ihm-ros2
+npm run db:push
 ```
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
 ```sh
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+## API Endpoints
 
-To create a production version of your app:
+### `POST /api/batterie`
+
+Store a battery reading.
+
+```json
+{ "percentage": 85.5 }
+```
+
+### `GET /api/batterie`
+
+Returns all battery readings, newest first.
+
+### `POST /api/vitesse`
+
+Store a speed reading.
+
+```json
+{ "speed": 1.23 }
+```
+
+### `GET /api/vitesse`
+
+Returns all speed readings, newest first.
+
+### `POST /api/imu`
+
+Store an IMU reading (accelerometer in m/s², gyroscope in rad/s, magnetometer in µT).
+
+```json
+{
+  "accel_x": 0.1, "accel_y": 0.2, "accel_z": 9.8,
+  "gyro_x": 0.01, "gyro_y": -0.02, "gyro_z": 0.0,
+  "mag_x": 25.0, "mag_y": -10.5, "mag_z": 40.0
+}
+```
+
+### `GET /api/imu`
+
+Returns all IMU readings, newest first.
+
+All POST endpoints return the created row with a `201` status. All responses include an auto-generated `id` and `createdAt` timestamp.
+
+## Building
 
 ```sh
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Preview the production build with `npm run preview`.
