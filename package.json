@@ -7,6 +7,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"start": "node server.js",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -19,13 +20,13 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/forms": "^0.5.11",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.1.18",
 		"@types/node": "^24",
+		"@types/ws": "^8.18.1",
 		"drizzle-kit": "^0.31.8",
 		"drizzle-orm": "^0.45.1",
 		"postgres": "^3.4.8",
@@ -38,7 +39,9 @@
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},
-	"dependencies": {
-		"echarts": "^6.0.0"
+		"dependencies": {
+		"echarts": "^6.0.0",
+		"@sveltejs/adapter-node": "^5.5.4",
+		"ws": "^8.20.0"
 	}
 }

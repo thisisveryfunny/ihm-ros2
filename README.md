@@ -80,10 +80,46 @@ Returns all IMU readings, newest first.
 
 All POST endpoints return the created row with a `201` status. All responses include an auto-generated `id` and `createdAt` timestamp.
 
+## WebSocket — Movement Commands
+
+The robot receives movement commands via a WebSocket at `/ws`.
+
+### Connecting
+
+- **Robot**: `ws://host/ws?role=robot` — receives movement commands
+- **Controller** (frontend UI): `ws://host/ws?role=controller` — sends movement commands
+
+### Message Protocol
+
+Controller sends to server:
+```json
+{ "type": "command", "direction": "front" }
+```
+Valid directions: `front`, `back`, `left`, `right`, `stop`.
+
+Server relays to all connected robots:
+```json
+{ "type": "command", "direction": "front" }
+```
+
+Server sends status to controllers when robots connect/disconnect:
+```json
+{ "type": "status", "connectedRobots": 1 }
+```
+
+The `stop` command should be sent when no direction key is pressed (key release), so the robot halts.
+
 ## Building
 
 ```sh
 npm run build
 ```
 
-Preview the production build with `npm run preview`.
+### Production
+
+```sh
+npm run build
+npm start
+```
+
+This runs `server.js` which serves the built app and WebSocket on the same port (default 3000, configurable via `PORT` env var).
