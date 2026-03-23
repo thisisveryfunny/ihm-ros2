@@ -5,7 +5,17 @@ import { parseClientMessage, type ServerMessage } from './protocol.js';
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export function attachWebSocketServer(server: Server): WebSocketServer {
-	const wss = new WebSocketServer({ server, path: '/ws' });
+	const wss = new WebSocketServer({ noServer: true });
+
+	server.on('upgrade', (req, socket, head) => {
+		const { pathname } = new URL(req.url ?? '/', `http://${req.headers.host}`);
+		if (pathname === '/ws') {
+			wss.handleUpgrade(req, socket, head, (ws) => {
+				wss.emit('connection', ws, req);
+			});
+		}
+		// Non-/ws paths are left alone for Vite HMR
+	});
 
 	const robots = new Set<WebSocket>();
 	const controllers = new Set<WebSocket>();
