@@ -48,6 +48,8 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 			ws.on('close', () => controllers.delete(ws));
 		}
 
+		const isRobot = role === 'robot';
+
 		ws.on('message', (data) => {
 			const msg = parseClientMessage(data.toString());
 			if (!msg) {
@@ -60,6 +62,24 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 			}
 			if (msg.type === 'command') {
 				broadcast(robots, { type: 'command', direction: msg.direction });
+				return;
+			}
+			// WebRTC signaling relay
+			if (msg.type === 'webrtc-offer') {
+				broadcast(isRobot ? controllers : robots, msg);
+				return;
+			}
+			if (msg.type === 'webrtc-answer') {
+				broadcast(isRobot ? controllers : robots, msg);
+				return;
+			}
+			if (msg.type === 'webrtc-ice') {
+				broadcast(isRobot ? controllers : robots, msg);
+				return;
+			}
+			// Collision alerts from robot → broadcast to controllers
+			if (msg.type === 'collision-alert') {
+				broadcast(controllers, msg);
 			}
 		});
 	});

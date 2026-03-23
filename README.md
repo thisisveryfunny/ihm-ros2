@@ -109,6 +109,25 @@ Server sends status to controllers when robots connect/disconnect:
 
 The `stop` command should be sent when no direction key is pressed (key release), so the robot halts.
 
+### WebRTC Video Signaling
+
+The same `/ws` WebSocket handles WebRTC signaling for live camera streaming. The server relays signaling messages between robots and controllers — the actual video flows peer-to-peer over UDP.
+
+**Flow:**
+1. Controller sends `webrtc-offer` → server relays to robot
+2. Robot sends `webrtc-answer` → server relays to controller
+3. Both exchange `webrtc-ice` candidates through the server
+4. WebRTC peer connection established — video streams directly
+
+**Signaling messages:**
+```json
+{ "type": "webrtc-offer", "sdp": "<SDP string>" }
+{ "type": "webrtc-answer", "sdp": "<SDP string>" }
+{ "type": "webrtc-ice", "candidate": "<candidate string>", "sdpMid": "0", "sdpMLineIndex": 0 }
+```
+
+The robot needs to run a WebRTC peer (e.g., aiortc in Python, GStreamer webrtcbin) that connects to `ws://host/ws?role=robot` and responds to offers with answers.
+
 ## Building
 
 ```sh
