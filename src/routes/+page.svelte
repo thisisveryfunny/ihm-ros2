@@ -36,7 +36,7 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-slate-100">Vue d'ensemble</h1>
-            <p class="mt-1 text-sm text-slate-500">Yahboom Raspberry Pi 5 — ROS2 Robot Car</p>
+            <p class="mt-1 text-sm text-slate-500">Robot MicroROS RaspberryPi 5</p>
         </div>
         <div class="flex items-center gap-3">
             <StatusBadge status="connected" label="Données simulées" />

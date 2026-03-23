@@ -68,7 +68,7 @@
             <GaugeChart
                 value={batteryStore.current?.percentage ?? 0}
                 label="Charge"
-                height="320px"
+                height="360px"
             />
         </div>
 
