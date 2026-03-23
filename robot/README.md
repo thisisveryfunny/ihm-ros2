@@ -138,6 +138,52 @@ Messages are only sent on state transitions (blocked→clear or clear→blocked)
 
 **Interaction with control_node:** The control node subscribes to `/collision_blocked`. When `true`, all movement commands from the dashboard are ignored — the user must release the key and press again once the obstacle clears.
 
+### 5. Sign Detection Node
+
+Uses the camera and ORB feature matching to detect printed signs (from `assets/` folder) and control the robot. Dashboard commands override sign detection when keys are pressed.
+
+```sh
+source /opt/ros/humble/setup.bash
+
+python3 sign_detection_node.py
+# Or with custom settings:
+python3 sign_detection_node.py --ros-args \
+  -p server_url:=localhost:5173 \
+  -p assets_path:=../assets \
+  -p match_threshold:=20 \
+  -p linear_speed:=0.2
+```
+
+**Sign → Action mapping:**
+
+| Sign | File | Action |
+|---|---|---|
+| Stop | `assets/stop-sign.jpg` | speed = 0 |
+| Up arrow | `assets/up-arrow.jpg` | forward |
+| Down arrow | `assets/down-arrow.jpg` | backward |
+| Left arrow | `assets/left-arrow.jpg` | turn left |
+| Right arrow | `assets/right-arrow.jpg` | turn right |
+| None detected | — | no command (dashboard control passes through) |
+
+**Parameters:**
+- `server_url` (string, default `localhost:5173`)
+- `assets_path` (string, default `../assets`)
+- `linear_speed` (double, default `0.2` m/s)
+- `angular_speed` (double, default `1.0` rad/s)
+- `match_threshold` (int, default `15`) — minimum ORB matches to trigger
+- `process_interval` (double, default `0.1` s) — time between frame processing
+- `camera_index` (int, default `0`)
+
+**WebSocket message sent to dashboard:**
+```json
+{ "type": "sign-detected", "sign": "stop" }
+{ "type": "sign-detected", "sign": null }
+```
+
+Messages are sent only on state transitions (new sign detected or sign lost).
+
+**Note:** This node shares the camera with `camera_node.py`. If both need to run simultaneously, use different `camera_index` values or a shared camera feed.
+
 ## Testing Without the Robot
 
 You can simulate sensor data with `ros2 topic pub`:

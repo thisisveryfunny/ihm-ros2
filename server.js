@@ -13,6 +13,7 @@ function parseMessage(raw) {
 		if (msg.type === 'webrtc-answer' && typeof msg.sdp === 'string') return msg;
 		if (msg.type === 'webrtc-ice' && typeof msg.candidate === 'string') return msg;
 		if (msg.type === 'collision-alert' && typeof msg.distance === 'number' && typeof msg.blocked === 'boolean') return msg;
+		if (msg.type === 'sign-detected' && (msg.sign === null || typeof msg.sign === 'string')) return msg;
 		return null;
 	} catch {
 		return null;
@@ -74,8 +75,8 @@ wss.on('connection', (ws, req) => {
 			broadcast(isRobot ? controllers : robots, msg);
 			return;
 		}
-		// Collision alerts from robot → controllers
-		if (msg.type === 'collision-alert') {
+		// Robot status alerts → controllers
+		if (msg.type === 'collision-alert' || msg.type === 'sign-detected') {
 			broadcast(controllers, msg);
 		}
 	});

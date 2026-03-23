@@ -77,8 +77,8 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 				broadcast(isRobot ? controllers : robots, msg);
 				return;
 			}
-			// Collision alerts from robot → broadcast to controllers
-			if (msg.type === 'collision-alert') {
+			// Robot status alerts → broadcast to controllers
+			if (msg.type === 'collision-alert' || msg.type === 'sign-detected') {
 				broadcast(controllers, msg);
 			}
 		});

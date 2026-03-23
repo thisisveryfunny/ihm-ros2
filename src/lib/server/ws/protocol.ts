@@ -11,7 +11,8 @@ export type ClientMessage =
 			sdpMid: string | null;
 			sdpMLineIndex: number | null;
 	  }
-	| { type: 'collision-alert'; distance: number; blocked: boolean };
+	| { type: 'collision-alert'; distance: number; blocked: boolean }
+	| { type: 'sign-detected'; sign: string | null };
 
 export type ServerMessage =
 	| { type: 'command'; direction: Direction }
@@ -26,7 +27,8 @@ export type ServerMessage =
 			sdpMid: string | null;
 			sdpMLineIndex: number | null;
 	  }
-	| { type: 'collision-alert'; distance: number; blocked: boolean };
+	| { type: 'collision-alert'; distance: number; blocked: boolean }
+	| { type: 'sign-detected'; sign: string | null };
 
 const VALID_DIRECTIONS: Direction[] = ['front', 'back', 'left', 'right', 'stop'];
 
@@ -58,6 +60,12 @@ export function parseClientMessage(raw: string): ClientMessage | null {
 			typeof msg.blocked === 'boolean'
 		) {
 			return { type: 'collision-alert', distance: msg.distance, blocked: msg.blocked };
+		}
+		if (msg.type === 'sign-detected') {
+			const sign = msg.sign;
+			if (sign === null || ['stop', 'up', 'down', 'left', 'right'].includes(sign)) {
+				return { type: 'sign-detected', sign };
+			}
 		}
 		return null;
 	} catch {
