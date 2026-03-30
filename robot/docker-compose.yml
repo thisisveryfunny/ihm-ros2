@@ -12,11 +12,6 @@ services:
     command: >
       python3 telemetry_node.py --ros-args
       -p server_url:=${SERVER_URL:-http://localhost:5173}
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
     logging:
       driver: json-file
       options:
