@@ -1,0 +1,52 @@
+services:
+  telemetry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ros2-telemetry
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - SERVER_URL=${SERVER_URL:-http://localhost:5173}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+    command: >
+      python3 telemetry_node.py --ros-args
+      -p server_url:=${SERVER_URL:-http://localhost:5173}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # To add more nodes later, uncomment and adjust:
+  #
+  # control:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: ros2-control
+  #   restart: unless-stopped
+  #   network_mode: host
+  #   environment:
+  #     - SERVER_URL=${SERVER_URL:-http://localhost:5173}
+  #   command: >
+  #     python3 control_node.py --ros-args
+  #     -p server_url:=${SERVER_URL:-http://localhost:5173}
+  #
+  # collision:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: ros2-collision
+  #   restart: unless-stopped
+  #   network_mode: host
+  #   command: >
+  #     python3 collision_node.py --ros-args
+  #     -p server_url:=${SERVER_URL:-http://localhost:5173}

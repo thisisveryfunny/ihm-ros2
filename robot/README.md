@@ -184,6 +184,44 @@ Messages are sent only on state transitions (new sign detected or sign lost).
 
 **Note:** This node shares the camera with `camera_node.py`. If both need to run simultaneously, use different `camera_index` values or a shared camera feed.
 
+## Docker
+
+Run the nodes in a Docker container using the `ros:humble` base image. Currently only the telemetry node is configured; other nodes can be added by uncommenting services in `docker-compose.yml`.
+
+### Build and run
+
+```sh
+cd robot/
+
+# Start with default server URL (localhost:5173)
+docker compose up -d
+
+# Or with a custom server URL
+SERVER_URL=http://192.168.1.100:5173 docker compose up -d
+
+# View logs
+docker compose logs -f telemetry
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Stop
+docker compose down
+```
+
+### Configuration
+
+| Environment variable | Default | Description |
+|---|---|---|
+| `SERVER_URL` | `http://localhost:5173` | Web server URL for API calls |
+| `ROS_DOMAIN_ID` | `0` | ROS2 DDS domain ID |
+
+The container uses `network_mode: host` so it can discover ROS2 topics on the host and reach the web server.
+
+### Adding more nodes
+
+Uncomment the corresponding service block in `docker-compose.yml`. The same Docker image is reused — only the `command:` changes per node.
+
 ## Testing Without the Robot
 
 You can simulate sensor data with `ros2 topic pub`:
