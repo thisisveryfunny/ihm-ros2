@@ -12,10 +12,12 @@ ROS2 parameters:
 """
 
 import math
+import os
 import threading
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Imu, MagneticField
 from std_msgs.msg import Float32
 from nav_msgs.msg import Odometry
@@ -24,6 +26,14 @@ import requests
 
 
 class TelemetryNode(Node):
+    # QoS compatible with the Yahboom driver (publishes with best_effort/volatile)
+    SENSOR_QOS = QoSProfile(
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=10,
+    )
+
     def __init__(self):
         super().__init__('telemetry_node')
 
@@ -37,18 +47,24 @@ class TelemetryNode(Node):
         self._speed = None
         self._lock = threading.Lock()
 
-        # Subscribers
-        self.create_subscription(Imu, '/imu/data', self._imu_callback, 10)
-        self.create_subscription(MagneticField, '/imu/mag', self._mag_callback, 10)
-        self.create_subscription(Float32, '/battery', self._battery_callback, 10)
-        self.create_subscription(Odometry, '/odom/unfiltered', self._odom_callback, 10)
+        # Subscribers (use BEST_EFFORT QoS to match the Yahboom driver's sensor topics)
+        self.create_subscription(Imu, '/imu/data', self._imu_callback, self.SENSOR_QOS)
+        self.create_subscription(MagneticField, '/imu/mag', self._mag_callback, self.SENSOR_QOS)
+        self.create_subscription(Float32, '/battery', self._battery_callback, self.SENSOR_QOS)
+        self.create_subscription(Odometry, '/odom/unfiltered', self._odom_callback, self.SENSOR_QOS)
 
         # Timer: POST every 2 seconds
         self.create_timer(2.0, self._send_telemetry)
 
         self.get_logger().info(f'Telemetry node started, posting to {self.server_url}')
+        self.get_logger().info(f'ROS_DOMAIN_ID = {os.environ.get("ROS_DOMAIN_ID", "NOT SET")}')
+        self.get_logger().info(
+            f'QoS: reliability={self.SENSOR_QOS.reliability.name}, '
+            f'durability={self.SENSOR_QOS.durability.name}, depth={self.SENSOR_QOS.depth}'
+        )
 
     def _imu_callback(self, msg: Imu):
+        self.get_logger().info('Received IMU data', once=True)
         with self._lock:
             self._imu_data = msg
 
@@ -74,6 +90,11 @@ class TelemetryNode(Node):
             mag = self._mag_data
             battery = self._battery
             speed = self._speed
+
+        self.get_logger().info(
+            f'Timer tick: imu={imu is not None}, mag={mag is not None}, '
+            f'battery={battery is not None}, speed={speed is not None}'
+        )
 
         # Run HTTP requests in a thread so we don't block the ROS2 executor
         thread = threading.Thread(
@@ -132,14 +153,10 @@ def main(args=None):
     node = TelemetryNode()
     try:
         rclpy.spin(node)
-    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
-        pass
     finally:
         node.destroy_node()
         try:
             rclpy.shutdown()
-        except Exception:
-            pass
 
 
 if __name__ == '__main__':

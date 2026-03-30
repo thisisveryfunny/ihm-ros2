@@ -142,6 +142,23 @@ The WebSocket server at `/ws` routes messages based on type and sender role.
 
 ---
 
+## QoS Configuration
+
+The Yahboom driver service publishes sensor topics (`/imu/data`, `/imu/mag`, `/battery`, `/odom/unfiltered`, `/scan`) with `BEST_EFFORT` reliability and `VOLATILE` durability. All subscriber nodes (telemetry_node, collision_node) must use a compatible QoS profile:
+
+```python
+SENSOR_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+)
+```
+
+Using the default ROS2 QoS (`RELIABLE` + `TRANSIENT_LOCAL`) will cause DDS to silently refuse the subscription match, resulting in no data received.
+
+---
+
 ## Data Persistence
 
 Telemetry data flows from robot sensors to PostgreSQL via the REST API.

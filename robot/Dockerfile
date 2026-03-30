@@ -1,7 +1,8 @@
 FROM ros:humble
 
-# Install pip and venv support
-RUN apt-get update && \
+# Fix corrupted dpkg state, then install pip and venv support
+RUN sed -i '/^$/d' /var/lib/dpkg/info/*.list 2>/dev/null; \
+    apt-get update && \
     apt-get install -y --no-install-recommends python3-pip python3-venv && \
     rm -rf /var/lib/apt/lists/*
 

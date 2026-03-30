@@ -9,6 +9,7 @@ services:
     environment:
       - SERVER_URL=${SERVER_URL:-http://localhost:5173}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
     command: >
       python3 telemetry_node.py --ros-args
       -p server_url:=${SERVER_URL:-http://localhost:5173}

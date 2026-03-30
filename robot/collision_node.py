@@ -22,6 +22,7 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
@@ -30,6 +31,14 @@ import websocket
 
 
 class CollisionNode(Node):
+    # QoS compatible with the Yahboom driver (publishes with best_effort/volatile)
+    SENSOR_QOS = QoSProfile(
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=10,
+    )
+
     def __init__(self):
         super().__init__('collision_node')
 
@@ -43,8 +52,8 @@ class CollisionNode(Node):
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.blocked_pub = self.create_publisher(Bool, '/collision_blocked', 10)
 
-        # Subscriber
-        self.create_subscription(LaserScan, '/scan', self._scan_callback, 10)
+        # Subscriber (use BEST_EFFORT QoS to match the Yahboom driver's sensor topics)
+        self.create_subscription(LaserScan, '/scan', self._scan_callback, self.SENSOR_QOS)
 
         # State
         self._blocked = False
