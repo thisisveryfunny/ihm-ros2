@@ -1,6 +1,4 @@
 requests
 websocket-client
-aiortc
 websockets
 opencv-python-headless
-av

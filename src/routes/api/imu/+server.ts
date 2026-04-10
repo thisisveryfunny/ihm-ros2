@@ -10,7 +10,7 @@ export const GET: RequestHandler = async () => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z, mag_x, mag_y, mag_z } =
+	const { accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z } =
 		await request.json();
 
 	const [row] = await db
@@ -21,10 +21,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			accelZ: accel_z,
 			gyroX: gyro_x,
 			gyroY: gyro_y,
-			gyroZ: gyro_z,
-			magX: mag_x,
-			magY: mag_y,
-			magZ: mag_z
+			gyroZ: gyro_z
 		})
 		.returning();
 

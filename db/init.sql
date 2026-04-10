@@ -18,8 +18,5 @@ CREATE TABLE IF NOT EXISTS imu (
     gyro_x REAL NOT NULL,
     gyro_y REAL NOT NULL,
     gyro_z REAL NOT NULL,
-    mag_x REAL NOT NULL,
-    mag_y REAL NOT NULL,
-    mag_z REAL NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

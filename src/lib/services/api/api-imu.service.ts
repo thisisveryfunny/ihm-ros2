@@ -4,7 +4,7 @@
  *
  * Orientation (euler + quaternion) is not available from the raw sensor POST
  * and defaults to identity. A client-side Madgwick filter could be added later
- * using the accel/gyro/mag data to compute orientation.
+ * using the accel/gyro data to compute orientation.
  */
 
 import type { ImuDataService } from '../data-service.js';
@@ -20,9 +20,6 @@ interface ImuRow {
 	gyroX: number;
 	gyroY: number;
 	gyroZ: number;
-	magX: number;
-	magY: number;
-	magZ: number;
 	createdAt: string;
 }
 

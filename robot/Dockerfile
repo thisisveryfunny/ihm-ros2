@@ -1,9 +1,11 @@
-FROM ros:humble
+FROM --platform=linux/arm64 ros:humble
 
-# Fix corrupted dpkg state, then install pip and venv support
+# Fix corrupted dpkg files lists (base image has missing newlines)
+RUN for f in /var/lib/dpkg/info/*.list; do sed -i -e '$a\' "$f"; done
+
+# Install pip and venv
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends python3-pip python3-venv
 
 # Create a virtual env with access to system packages (rclpy, sensor_msgs, etc.)
 RUN python3 -m venv --system-site-packages /opt/venv

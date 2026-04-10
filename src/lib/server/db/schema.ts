@@ -20,8 +20,5 @@ export const imu = pgTable('imu', {
 	gyroX: real('gyro_x').notNull(),
 	gyroY: real('gyro_y').notNull(),
 	gyroZ: real('gyro_z').notNull(),
-	magX: real('mag_x').notNull(),
-	magY: real('mag_y').notNull(),
-	magZ: real('mag_z').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
