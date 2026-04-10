@@ -1,19 +1,52 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, onDestroy } from "svelte";
 
 let video: HTMLVideoElement;
+let pc: RTCPeerConnection;
 
-onMount(() => {
-    const pc = new RTCPeerConnection();
+const SERVER = "localhost"; // change this
+
+async function start() {
+
+    pc = new RTCPeerConnection();
+
+    // IMPORTANT: request video
+    pc.addTransceiver("video", { direction: "recvonly" });
 
     pc.ontrack = (event) => {
         video.srcObject = event.streams[0];
     };
 
-    fetch("http://localhost:8889/robot/whep", {
-        method: "POST"
-    })
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const response = await fetch(`http://${SERVER}:8889/robot/whep`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/sdp"
+        },
+        body: offer.sdp
+    });
+
+    const answer = await response.text();
+
+    await pc.setRemoteDescription({
+        type: "answer",
+        sdp: answer
+    });
+}
+
+onMount(start);
+
+onDestroy(() => {
+    pc?.close();
 });
 </script>
 
-<video bind:this={video} autoplay playsinline></video>
+<video
+bind:this={video}
+autoplay
+playsinline
+muted
+class="w-full h-full object-cover"
+/>
