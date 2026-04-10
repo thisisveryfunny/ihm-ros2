@@ -1,64 +1,19 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+import { onMount } from "svelte";
 
-	let videoElement: HTMLVideoElement;
-	let pc: RTCPeerConnection | null = null;
+let video: HTMLVideoElement;
 
-	const SERVER = "localhost"; // change this
-	const STREAM = "webrtc://" + SERVER + "/live/robot";
+onMount(() => {
+    const pc = new RTCPeerConnection();
 
-	async function startStream() {
-		pc = new RTCPeerConnection();
+    pc.ontrack = (event) => {
+        video.srcObject = event.streams[0];
+    };
 
-		pc.ontrack = (event) => {
-			videoElement.srcObject = event.streams[0];
-		};
-
-		const offer = await pc.createOffer({
-			offerToReceiveAudio: false,
-			offerToReceiveVideo: true
-		});
-
-		await pc.setLocalDescription(offer);
-
-		const response = await fetch(`http://${SERVER}:1985/rtc/v1/play/`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify({
-				api: `http://${SERVER}:1985/rtc/v1/play/`,
-				streamurl: STREAM,
-				sdp: offer.sdp
-			})
-		});
-
-		const data = await response.json();
-
-		await pc.setRemoteDescription({
-			type: "answer",
-			sdp: data.sdp
-		});
-	}
-
-	onMount(() => {
-		startStream();
-	});
-
-	onDestroy(() => {
-		if (pc) {
-			pc.close();
-			pc = null;
-		}
-	});
+    fetch("http://localhost:8889/robot/whep", {
+        method: "POST"
+    })
+});
 </script>
 
-<div class="w-full h-full rounded-xl overflow-hidden bg-black">
-	<video
-		bind:this={videoElement}
-		autoplay
-		playsinline
-		muted
-		class="w-full h-full object-cover"
-	/>
-</div>
+<video bind:this={video} autoplay playsinline></video>
