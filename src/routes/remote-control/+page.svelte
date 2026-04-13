@@ -7,6 +7,7 @@
 	import ConnectionPanel from '$lib/components/remote/ConnectionPanel.svelte';
 	import type { Direction } from '$lib/types/remote-control.js';
 
+	let cameraReady = $state(false);
 	const unsubs: Array<() => void> = [];
 	const pressedKeys = new Set<string>();
 
@@ -93,10 +94,20 @@
 	</div>
 
 	<!-- Main content: camera + controls -->
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+	{#if !cameraReady}
+		<div class="flex flex-col items-center justify-center gap-4 rounded-xl border border-surface-700 bg-surface-800 py-24">
+			<svg class="h-8 w-8 animate-spin text-ros-orange" viewBox="0 0 24 24" fill="none">
+				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+			</svg>
+			<p class="text-sm text-slate-400">Connexion en cours...</p>
+		</div>
+	{/if}
+
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3" class:hidden={!cameraReady}>
 		<!-- Camera feed (2/3) -->
 		<div class="lg:col-span-2">
-			<CameraFeed />
+			<CameraFeed onready={() => cameraReady = true} />
 		</div>
 
 		<!-- Control pad (1/3) -->
