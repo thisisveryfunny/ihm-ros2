@@ -9,8 +9,7 @@ import imuRouter from './routes/imu.js';
 
 const app = express();
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(',');
-app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(cors());
 app.use(express.json());
 
 app.use('/api/batterie', batterieRouter);

@@ -4,7 +4,7 @@ import { onMount, onDestroy } from "svelte";
 let video: HTMLVideoElement;
 let pc: RTCPeerConnection;
 
-const SERVER = "localhost"; // change this
+const SERVER = import.meta.env.VITE_CAMERA_HOST ?? location.hostname;
 
 async function start() {
 
