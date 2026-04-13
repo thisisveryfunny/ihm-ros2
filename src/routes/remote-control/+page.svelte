@@ -94,31 +94,32 @@
 	</div>
 
 	<!-- Main content: camera + controls -->
-	{#if !cameraReady}
-		<div class="flex flex-col items-center justify-center gap-4 rounded-xl border border-surface-700 bg-surface-800 py-24">
-			<svg class="h-8 w-8 animate-spin text-ros-orange" viewBox="0 0 24 24" fill="none">
-				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-			</svg>
-			<p class="text-sm text-slate-400">Connexion en cours...</p>
-		</div>
-	{/if}
-
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3" class:hidden={!cameraReady}>
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<!-- Camera feed (2/3) -->
-		<div class="lg:col-span-2">
+		<div class="relative lg:col-span-2">
+			{#if !cameraReady}
+				<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl border border-surface-700 bg-surface-800">
+					<svg class="h-8 w-8 animate-spin text-ros-orange" viewBox="0 0 24 24" fill="none">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+					</svg>
+					<p class="text-sm text-slate-400">Connexion en cours...</p>
+				</div>
+			{/if}
 			<CameraFeed onready={() => cameraReady = true} />
 		</div>
 
-		<!-- Control pad (1/3) -->
-		<div class="flex items-center justify-center">
-			<DirectionPad
-				activeDirection={remoteControlStore.activeDirection}
-				disabled={remoteControlStore.connectionStatus !== 'connected'}
-				onDirectionStart={handleDirectionStart}
-				onDirectionEnd={handleDirectionEnd}
-			/>
-		</div>
+		<!-- Control pad (1/3) — hidden until camera ready -->
+		{#if cameraReady}
+			<div class="flex items-center justify-center">
+				<DirectionPad
+					activeDirection={remoteControlStore.activeDirection}
+					disabled={remoteControlStore.connectionStatus !== 'connected'}
+					onDirectionStart={handleDirectionStart}
+					onDirectionEnd={handleDirectionEnd}
+				/>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Info banner -->
