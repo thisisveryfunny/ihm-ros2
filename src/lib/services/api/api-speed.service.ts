@@ -44,7 +44,7 @@ export class ApiSpeedService implements SpeedDataService {
 		this.#polling = true;
 
 		try {
-			const res = await fetch('/api/vitesse');
+			const res = await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/vitesse`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const rows: VitesseRow[] = await res.json();
 			this.isConnected = true;

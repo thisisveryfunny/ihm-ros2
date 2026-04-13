@@ -70,8 +70,10 @@ export class RemoteControlClient {
 
 		this.#notifyStatus('connecting');
 
-		const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const url = `${protocol}//${location.host}/ws?role=controller`;
+		const wsUrl = import.meta.env.VITE_WS_URL;
+		const url = wsUrl
+			? `${wsUrl}/ws?role=controller`
+			: `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?role=controller`;
 
 		const ws = new WebSocket(url);
 		this.#ws = ws;

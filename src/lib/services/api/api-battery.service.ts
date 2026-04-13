@@ -49,7 +49,7 @@ export class ApiBatteryService implements BatteryDataService {
 		this.#polling = true;
 
 		try {
-			const res = await fetch('/api/batterie');
+			const res = await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/batterie`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const rows: BatterieRow[] = await res.json();
 			this.isConnected = true;

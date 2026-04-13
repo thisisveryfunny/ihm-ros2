@@ -53,7 +53,7 @@ export class ApiImuService implements ImuDataService {
 		this.#polling = true;
 
 		try {
-			const res = await fetch('/api/imu');
+			const res = await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/imu`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const rows: ImuRow[] = await res.json();
 			this.isConnected = true;
