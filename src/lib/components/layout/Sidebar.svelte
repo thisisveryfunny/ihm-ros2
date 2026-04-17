@@ -109,12 +109,5 @@
             {/if}
         </button>
 
-        <!-- Connection status -->
-        <div class="mt-2 flex items-center gap-2 px-3 py-1">
-            <span class="h-2 w-2 animate-pulse rounded-full bg-success-500"></span>
-            {#if !collapsed}
-                <span class="text-xs text-slate-500">Données simulées</span>
-            {/if}
-        </div>
     </div>
 </aside>

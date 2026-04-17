@@ -39,7 +39,7 @@
             <p class="mt-1 text-sm text-slate-500">Robot MicroROS RaspberryPi 5</p>
         </div>
         <div class="flex items-center gap-3">
-            <StatusBadge status="connected" label="Données simulées" />
+            <StatusBadge status="connected" />
             <span class="font-mono text-xs text-slate-500">{currentTime}</span>
         </div>
     </div>
@@ -164,24 +164,4 @@
         </a>
     </div>
 
-    <!-- Tech info banner -->
-    <div class="rounded-xl border border-ros-orange/20 bg-ros-orange/5 p-4">
-        <div class="flex items-start gap-3">
-            <svg class="mt-0.5 h-5 w-5 shrink-0 text-ros-orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <div>
-                <p class="text-sm font-medium text-ros-orange">Mode simulation</p>
-                <p class="mt-1 text-xs text-slate-500">
-                    Les données sont générées localement. Pour connecter le robot réel, implémentez
-                    <code class="rounded bg-surface-700 px-1 py-0.5 font-mono text-slate-300">ROS2SpeedService</code>,
-                    <code class="rounded bg-surface-700 px-1 py-0.5 font-mono text-slate-300">ROS2ImuService</code> et
-                    <code class="rounded bg-surface-700 px-1 py-0.5 font-mono text-slate-300">ROS2BatteryService</code>
-                    dans <code class="rounded bg-surface-700 px-1 py-0.5 font-mono text-slate-300">src/lib/services/ros2/</code>.
-                </p>
-            </div>
-        </div>
-    </div>
 </div>
