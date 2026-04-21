@@ -2,5 +2,3 @@ requests
 websocket-client
 websockets
 opencv-python-headless
-gpiozero
-lgpio

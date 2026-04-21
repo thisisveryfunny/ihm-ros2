@@ -8,7 +8,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import UInt16
+from std_msgs.msg import UInt16, Int32
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
@@ -18,43 +18,17 @@ WS_CAMERA_SERVER = "ws://10.10.211.145:5173/ws/camera?role=robot"
 API_BASE = "http://10.10.211.145:5173/api"
 THROTTLE_INTERVAL = 1.0  # seconds
 
-# Camera servo config
-PAN_PIN = 17
-TILT_PIN = 18
-PAN_MIN = -90.0
-PAN_MAX = 90.0
-TILT_MIN = -45.0
-TILT_MAX = 45.0
-PAN_SPEED = 2.0   # degrees per tick
-TILT_SPEED = 2.0  # degrees per tick
+# Camera servo config — driven via Yahboom /servo_s1 (pan) and /servo_s2 (tilt).
+# Yahboom servos use an absolute 0-180 degree range with 90 as the centre.
+PAN_CENTER = 90
+PAN_MIN = 0
+PAN_MAX = 180
+TILT_CENTER = 90
+TILT_MIN = 45
+TILT_MAX = 135
+PAN_STEP = 2   # degrees per tick
+TILT_STEP = 2  # degrees per tick
 TICK_HZ = 30.0
-
-
-class ServoDriver:
-    """Thin wrapper around gpiozero.AngularServo so the backend is swappable."""
-
-    def __init__(self, pin: int, min_angle: float, max_angle: float):
-        from gpiozero import AngularServo
-
-        self._servo = AngularServo(
-            pin,
-            min_angle=min_angle,
-            max_angle=max_angle,
-            min_pulse_width=0.0005,
-            max_pulse_width=0.0025,
-        )
-        self._servo.angle = 0.0
-
-    @property
-    def angle(self) -> float:
-        return float(self._servo.angle or 0.0)
-
-    @angle.setter
-    def angle(self, value: float) -> None:
-        self._servo.angle = value
-
-    def close(self) -> None:
-        self._servo.close()
 
 
 class WSControlNode(Node):
@@ -69,6 +43,10 @@ class WSControlNode(Node):
         self.create_subscription(Imu, "/imu", self.imu_cb, 10)
         self.create_subscription(Odometry, "/odom_raw", self.odom_cb, 10)
 
+        # Yahboom pan/tilt servo publishers
+        self.pan_pub = self.create_publisher(Int32, "/servo_s1", 10)
+        self.tilt_pub = self.create_publisher(Int32, "/servo_s2", 10)
+
         self._last_sent = {"batterie": 0.0, "vitesse": 0.0, "imu": 0.0}
 
         # Populated from main() so _send_ws can schedule coroutines from
@@ -77,27 +55,16 @@ class WSControlNode(Node):
         self.ws_camera = None
         self._loop = None
 
-        # ── Camera servo setup ───────────────────────────────────────
-        try:
-            self._pan = ServoDriver(PAN_PIN, PAN_MIN, PAN_MAX)
-            self._tilt = ServoDriver(TILT_PIN, TILT_MIN, TILT_MAX)
-            self._servo_hw = True
-            self.get_logger().info(
-                f"Servos initialised: pan GPIO{PAN_PIN}, tilt GPIO{TILT_PIN}"
-            )
-        except Exception as e:
-            self._servo_hw = False
-            self._pan_angle = 0.0
-            self._tilt_angle = 0.0
-            self.get_logger().warn(
-                f"Servo hardware unavailable ({e}); running in log-only mode"
-            )
-
-        # Active motion state (0 = stopped)
-        self._pan_dir = 0   # -1 left, +1 right
-        self._tilt_dir = 0  # -1 down, +1 up
+        # ── Camera servo state ───────────────────────────────────────
+        self._pan_angle = PAN_CENTER
+        self._tilt_angle = TILT_CENTER
+        self._pan_dir = 0   # -1 left, +1 right, 0 stop
+        self._tilt_dir = 0  # -1 down, +1 up, 0 stop
         self._servo_lock = threading.Lock()
         self._tick_dt = 1.0 / TICK_HZ
+
+        # Publish initial centred pose so the servos snap to a known state
+        self._publish_servo_angles(self._pan_angle, self._tilt_angle)
 
         # Tick thread drives continuous pan/tilt motion while a key is held
         self._tick_thread = threading.Thread(target=self._servo_tick_loop, daemon=True)
@@ -230,21 +197,17 @@ class WSControlNode(Node):
     # ── Camera servo tick + handler ──────────────────────────────────
 
     @staticmethod
-    def _clamp(value: float, lo: float, hi: float) -> float:
+    def _clamp(value: int, lo: int, hi: int) -> int:
         return max(lo, min(hi, value))
 
-    def _servo_angles(self) -> tuple[float, float]:
-        if self._servo_hw:
-            return self._pan.angle, self._tilt.angle
-        return self._pan_angle, self._tilt_angle
+    def _publish_servo_angles(self, pan: int, tilt: int) -> None:
+        pan_msg = Int32()
+        pan_msg.data = int(pan)
+        self.pan_pub.publish(pan_msg)
 
-    def _apply_servo_angles(self, pan: float, tilt: float) -> None:
-        if self._servo_hw:
-            self._pan.angle = pan
-            self._tilt.angle = tilt
-        else:
-            self._pan_angle = pan
-            self._tilt_angle = tilt
+        tilt_msg = Int32()
+        tilt_msg.data = int(tilt)
+        self.tilt_pub.publish(tilt_msg)
 
     def _servo_tick_loop(self) -> None:
         while rclpy.ok():
@@ -252,15 +215,24 @@ class WSControlNode(Node):
                 pan_dir = self._pan_dir
                 tilt_dir = self._tilt_dir
 
-            if pan_dir != 0 or tilt_dir != 0:
-                pan, tilt = self._servo_angles()
+            if pan_dir == 0 and tilt_dir == 0:
+                time.sleep(self._tick_dt)
+                continue
+
+            with self._servo_lock:
                 if pan_dir != 0:
-                    pan = self._clamp(pan + pan_dir * PAN_SPEED, PAN_MIN, PAN_MAX)
+                    self._pan_angle = self._clamp(
+                        self._pan_angle + pan_dir * PAN_STEP, PAN_MIN, PAN_MAX
+                    )
                 if tilt_dir != 0:
-                    tilt = self._clamp(tilt + tilt_dir * TILT_SPEED, TILT_MIN, TILT_MAX)
-                self._apply_servo_angles(pan, tilt)
-                if not self._servo_hw:
-                    self.get_logger().info(f"Camera → pan={pan:.1f}° tilt={tilt:.1f}°")
+                    self._tilt_angle = self._clamp(
+                        self._tilt_angle + tilt_dir * TILT_STEP, TILT_MIN, TILT_MAX
+                    )
+                pan_a = self._pan_angle
+                tilt_a = self._tilt_angle
+
+            self._publish_servo_angles(pan_a, tilt_a)
+            self.get_logger().info(f"Camera → pan={pan_a}° tilt={tilt_a}°")
 
             time.sleep(self._tick_dt)
 
@@ -333,15 +305,6 @@ class WSControlNode(Node):
                     self._pan_dir = 0
                     self._tilt_dir = 0
                 await asyncio.sleep(2)
-
-    def destroy_node(self):
-        try:
-            if self._servo_hw:
-                self._pan.close()
-                self._tilt.close()
-        except Exception:
-            pass
-        super().destroy_node()
 
 
 def main():
