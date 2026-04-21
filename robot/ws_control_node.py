@@ -13,9 +13,48 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 
-WS_SERVER = "ws://10.10.211.71:5173/ws?role=robot"
-API_BASE = "http://10.10.211.71:5173/api"
+WS_SERVER = "ws://10.10.211.145:5173/ws?role=robot"
+WS_CAMERA_SERVER = "ws://10.10.211.145:5173/ws/camera?role=robot"
+API_BASE = "http://10.10.211.145:5173/api"
 THROTTLE_INTERVAL = 1.0  # seconds
+
+# Camera servo config
+PAN_PIN = 17
+TILT_PIN = 18
+PAN_MIN = -90.0
+PAN_MAX = 90.0
+TILT_MIN = -45.0
+TILT_MAX = 45.0
+PAN_SPEED = 2.0   # degrees per tick
+TILT_SPEED = 2.0  # degrees per tick
+TICK_HZ = 30.0
+
+
+class ServoDriver:
+    """Thin wrapper around gpiozero.AngularServo so the backend is swappable."""
+
+    def __init__(self, pin: int, min_angle: float, max_angle: float):
+        from gpiozero import AngularServo
+
+        self._servo = AngularServo(
+            pin,
+            min_angle=min_angle,
+            max_angle=max_angle,
+            min_pulse_width=0.0005,
+            max_pulse_width=0.0025,
+        )
+        self._servo.angle = 0.0
+
+    @property
+    def angle(self) -> float:
+        return float(self._servo.angle or 0.0)
+
+    @angle.setter
+    def angle(self, value: float) -> None:
+        self._servo.angle = value
+
+    def close(self) -> None:
+        self._servo.close()
 
 
 class WSControlNode(Node):
@@ -35,7 +74,34 @@ class WSControlNode(Node):
         # Populated from main() so _send_ws can schedule coroutines from
         # the ROS spin thread onto the asyncio loop.
         self.ws = None
+        self.ws_camera = None
         self._loop = None
+
+        # ── Camera servo setup ───────────────────────────────────────
+        try:
+            self._pan = ServoDriver(PAN_PIN, PAN_MIN, PAN_MAX)
+            self._tilt = ServoDriver(TILT_PIN, TILT_MIN, TILT_MAX)
+            self._servo_hw = True
+            self.get_logger().info(
+                f"Servos initialised: pan GPIO{PAN_PIN}, tilt GPIO{TILT_PIN}"
+            )
+        except Exception as e:
+            self._servo_hw = False
+            self._pan_angle = 0.0
+            self._tilt_angle = 0.0
+            self.get_logger().warn(
+                f"Servo hardware unavailable ({e}); running in log-only mode"
+            )
+
+        # Active motion state (0 = stopped)
+        self._pan_dir = 0   # -1 left, +1 right
+        self._tilt_dir = 0  # -1 down, +1 up
+        self._servo_lock = threading.Lock()
+        self._tick_dt = 1.0 / TICK_HZ
+
+        # Tick thread drives continuous pan/tilt motion while a key is held
+        self._tick_thread = threading.Thread(target=self._servo_tick_loop, daemon=True)
+        self._tick_thread.start()
 
         self.get_logger().info("WebSocket control node started")
 
@@ -74,15 +140,18 @@ class WSControlNode(Node):
 
         if min_dist < 0.30:
             if not self.obstacle_front:
+                self.publish_cmd(0.0, 0.0)
                 self.get_logger().warn(f"⚠️ Obstacle detected at {min_dist:.2f}m")
                 self._send_ws({
                     'type': 'collision-alert',
                     'distance': round(min_dist, 3),
                     'blocked': True,
                 })
+
             self.obstacle_front = True
         else:
             if self.obstacle_front:
+
                 self.get_logger().info(f"✅ Path clear at {min_dist:.2f}m")
                 self._send_ws({
                     'type': 'collision-alert',
@@ -93,7 +162,11 @@ class WSControlNode(Node):
 
     # 🔋 Battery
     def battery_cb(self, msg):
-        voltage = msg.data
+        raw = msg.data
+        self.get_logger().info(f"Battery raw UInt16: {raw}")
+
+        # TODO: adjust divisor once the unit is confirmed via `ros2 topic echo /battery`
+        voltage = raw / 100.0  # centivolts assumption (e.g. 750 → 7.5V)
         min_v = 6.4
         max_v = 8.4
         percentage = (voltage - min_v) / (max_v - min_v) * 100
@@ -154,6 +227,63 @@ class WSControlNode(Node):
         else:
             self.get_logger().warn(f"UNKNOWN direction: {direction}")
 
+    # ── Camera servo tick + handler ──────────────────────────────────
+
+    @staticmethod
+    def _clamp(value: float, lo: float, hi: float) -> float:
+        return max(lo, min(hi, value))
+
+    def _servo_angles(self) -> tuple[float, float]:
+        if self._servo_hw:
+            return self._pan.angle, self._tilt.angle
+        return self._pan_angle, self._tilt_angle
+
+    def _apply_servo_angles(self, pan: float, tilt: float) -> None:
+        if self._servo_hw:
+            self._pan.angle = pan
+            self._tilt.angle = tilt
+        else:
+            self._pan_angle = pan
+            self._tilt_angle = tilt
+
+    def _servo_tick_loop(self) -> None:
+        while rclpy.ok():
+            with self._servo_lock:
+                pan_dir = self._pan_dir
+                tilt_dir = self._tilt_dir
+
+            if pan_dir != 0 or tilt_dir != 0:
+                pan, tilt = self._servo_angles()
+                if pan_dir != 0:
+                    pan = self._clamp(pan + pan_dir * PAN_SPEED, PAN_MIN, PAN_MAX)
+                if tilt_dir != 0:
+                    tilt = self._clamp(tilt + tilt_dir * TILT_SPEED, TILT_MIN, TILT_MAX)
+                self._apply_servo_angles(pan, tilt)
+                if not self._servo_hw:
+                    self.get_logger().info(f"Camera → pan={pan:.1f}° tilt={tilt:.1f}°")
+
+            time.sleep(self._tick_dt)
+
+    def handle_camera(self, data):
+        direction = data.get("direction")
+        self.get_logger().info(f"CAMERA RECEIVED → direction={direction}")
+        with self._servo_lock:
+            if direction == "left":
+                self._pan_dir = -1
+            elif direction == "right":
+                self._pan_dir = 1
+            elif direction == "up":
+                self._tilt_dir = 1
+            elif direction == "down":
+                self._tilt_dir = -1
+            elif direction == "stop":
+                self._pan_dir = 0
+                self._tilt_dir = 0
+            else:
+                self.get_logger().warn(f"UNKNOWN camera direction: {direction}")
+
+    # ── WebSocket loops ──────────────────────────────────────────────
+
     async def websocket_loop(self):
         while True:
             try:
@@ -177,6 +307,42 @@ class WSControlNode(Node):
                 self.ws = None
                 await asyncio.sleep(2)
 
+    async def camera_websocket_loop(self):
+        while True:
+            try:
+                self.get_logger().info(f"Connecting to camera WS → {WS_CAMERA_SERVER}")
+                async with websockets.connect(WS_CAMERA_SERVER) as ws:
+                    self.ws_camera = ws
+                    self.get_logger().info("CONNECTED to camera WebSocket")
+                    async for message in ws:
+                        try:
+                            data = json.loads(message)
+                        except Exception as e:
+                            self.get_logger().error(f"CAMERA JSON PARSE ERROR: {e}")
+                            continue
+                        if data.get("type") == "camera":
+                            try:
+                                self.handle_camera(data)
+                            except Exception as e:
+                                self.get_logger().error(f"CAMERA HANDLER ERROR: {e}")
+            except Exception as e:
+                self.get_logger().error(f"CAMERA WS CONNECTION ERROR: {e}")
+                self.ws_camera = None
+                # Safety: stop motion on disconnect so the servos don't drift
+                with self._servo_lock:
+                    self._pan_dir = 0
+                    self._tilt_dir = 0
+                await asyncio.sleep(2)
+
+    def destroy_node(self):
+        try:
+            if self._servo_hw:
+                self._pan.close()
+                self._tilt.close()
+        except Exception:
+            pass
+        super().destroy_node()
+
 
 def main():
     rclpy.init()
@@ -194,7 +360,12 @@ def main():
     ros_thread.start()
 
     try:
-        loop.run_until_complete(node.websocket_loop())
+        loop.run_until_complete(
+            asyncio.gather(
+                node.websocket_loop(),
+                node.camera_websocket_loop(),
+            )
+        )
     finally:
         node.destroy_node()
         rclpy.shutdown()
