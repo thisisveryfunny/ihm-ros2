@@ -4,11 +4,13 @@
  */
 
 import type { ConnectionStatus, Direction } from '$lib/types/remote-control.js';
+import type { CameraDirection } from '$lib/types/camera-control.js';
 
 function createRemoteControlStore() {
 	let connectionStatus = $state<ConnectionStatus>('disconnected');
 	let connectedRobots = $state(0);
 	let activeDirection = $state<Direction | null>(null);
+	let activeCameraDirection = $state<CameraDirection | null>(null);
 	let lastError = $state<string | null>(null);
 	let latencyMs = $state<number | null>(null);
 
@@ -16,6 +18,7 @@ function createRemoteControlStore() {
 		connectionStatus = 'disconnected';
 		connectedRobots = 0;
 		activeDirection = null;
+		activeCameraDirection = null;
 		lastError = null;
 		latencyMs = null;
 	}
@@ -29,6 +32,9 @@ function createRemoteControlStore() {
 		},
 		get activeDirection() {
 			return activeDirection;
+		},
+		get activeCameraDirection() {
+			return activeCameraDirection;
 		},
 		get lastError() {
 			return lastError;
@@ -45,6 +51,9 @@ function createRemoteControlStore() {
 		},
 		setActiveDirection(dir: Direction | null) {
 			activeDirection = dir;
+		},
+		setActiveCameraDirection(dir: CameraDirection | null) {
+			activeCameraDirection = dir;
 		},
 		setError(msg: string | null) {
 			lastError = msg;

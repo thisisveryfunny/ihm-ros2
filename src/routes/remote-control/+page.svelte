@@ -2,7 +2,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { remoteControlClient, cameraControlClient } from '$lib/services/index.js';
 	import { remoteControlStore } from '$lib/stores/remote-control.svelte.js';
-	import DirectionPad from '$lib/components/remote/DirectionPad.svelte';
+	import MovementPad from '$lib/components/remote/MovementPad.svelte';
+	import CameraPad from '$lib/components/remote/CameraPad.svelte';
 	import CameraFeed from '$lib/components/remote/CameraFeed.svelte';
 	import ConnectionPanel from '$lib/components/remote/ConnectionPanel.svelte';
 	import type { Direction } from '$lib/types/remote-control.js';
@@ -65,10 +66,12 @@
 	}
 
 	function handleCameraStart(direction: CameraDirection) {
+		remoteControlStore.setActiveCameraDirection(direction);
 		cameraControlClient.sendCameraCommand(direction);
 	}
 
 	function handleCameraEnd() {
+		remoteControlStore.setActiveCameraDirection(null);
 		cameraControlClient.sendCameraCommand('stop');
 	}
 
@@ -159,14 +162,20 @@
 			<CameraFeed onready={() => cameraReady = true} />
 		</div>
 
-		<!-- Control pad (1/3) — hidden until camera ready -->
+		<!-- Control pads (1/3) — hidden until camera ready -->
 		{#if cameraReady}
-			<div class="flex items-center justify-center">
-				<DirectionPad
+			<div class="flex flex-col items-center justify-center gap-4">
+				<MovementPad
 					activeDirection={remoteControlStore.activeDirection}
 					disabled={remoteControlStore.connectionStatus !== 'connected'}
 					onDirectionStart={handleDirectionStart}
 					onDirectionEnd={handleDirectionEnd}
+				/>
+				<CameraPad
+					activeDirection={remoteControlStore.activeCameraDirection}
+					disabled={remoteControlStore.connectionStatus !== 'connected'}
+					onDirectionStart={handleCameraStart}
+					onDirectionEnd={handleCameraEnd}
 				/>
 			</div>
 		{/if}

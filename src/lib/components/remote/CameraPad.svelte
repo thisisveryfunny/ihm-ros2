@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { Direction } from '$lib/types/remote-control.js';
+	import type { CameraDirection } from '$lib/types/camera-control.js';
 
 	interface Props {
-		activeDirection: Direction | null;
+		activeDirection: CameraDirection | null;
 		disabled?: boolean;
-		onDirectionStart: (direction: Direction) => void;
+		onDirectionStart: (direction: CameraDirection) => void;
 		onDirectionEnd: () => void;
 	}
 
 	let { activeDirection, disabled = false, onDirectionStart, onDirectionEnd }: Props = $props();
 
 	type ArrowButton = {
-		direction: Direction;
+		direction: CameraDirection;
 		label: string;
 		row: string;
 		col: string;
@@ -20,8 +20,8 @@
 
 	const arrows: ArrowButton[] = [
 		{
-			direction: 'front',
-			label: 'Avancer',
+			direction: 'up',
+			label: 'Haut',
 			row: 'row-start-1',
 			col: 'col-start-2',
 			path: 'M18 15l-6-6-6 6',
@@ -41,22 +41,22 @@
 			path: 'M9 18l6-6-6-6',
 		},
 		{
-			direction: 'back',
-			label: 'Reculer',
+			direction: 'down',
+			label: 'Bas',
 			row: 'row-start-3',
 			col: 'col-start-2',
 			path: 'M6 9l6 6 6-6',
 		},
 	];
 
-	function isActive(direction: Direction): boolean {
+	function isActive(direction: CameraDirection): boolean {
 		return activeDirection === direction;
 	}
 </script>
 
 <div class="rounded-xl border border-surface-700 bg-surface-800 p-6">
 	<p class="mb-4 text-center text-xs font-medium uppercase tracking-wider text-slate-500">
-		Commandes
+		Camera
 	</p>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -95,7 +95,7 @@
 			</button>
 		{/each}
 
-		<!-- Center stop button -->
+		<!-- Center recenter button -->
 		<button
 			class="col-start-2 row-start-2 flex h-16 w-16 items-center justify-center rounded-xl border
 				transition-all duration-100 select-none cursor-pointer
@@ -103,7 +103,7 @@
 				hover:border-danger-500 hover:bg-danger-500/20 hover:text-danger-400
 				active:scale-95
 				{disabled ? 'cursor-not-allowed opacity-40' : ''}"
-			aria-label="Arreter"
+			aria-label="Stopper"
 			{disabled}
 			onclick={() => {
 				if (!disabled) {
@@ -112,11 +112,9 @@
 				}
 			}}
 		>
-			<span class="text-xs font-bold uppercase">Arrêt</span>
+			<span class="text-xs font-bold uppercase">Stop</span>
 		</button>
 	</div>
 
-	<p class="mt-4 text-center text-xs text-slate-600">
-		Clavier : touches flechees
-	</p>
+	<p class="mt-4 text-center text-xs text-slate-600">Clavier : flèches</p>
 </div>
