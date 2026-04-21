@@ -13,6 +13,8 @@ function createRemoteControlStore() {
 	let activeCameraDirection = $state<CameraDirection | null>(null);
 	let lastError = $state<string | null>(null);
 	let latencyMs = $state<number | null>(null);
+	let collisionBlocked = $state(false);
+	let collisionDistance = $state<number | null>(null);
 
 	function reset(): void {
 		connectionStatus = 'disconnected';
@@ -21,6 +23,8 @@ function createRemoteControlStore() {
 		activeCameraDirection = null;
 		lastError = null;
 		latencyMs = null;
+		collisionBlocked = false;
+		collisionDistance = null;
 	}
 
 	return {
@@ -42,6 +46,12 @@ function createRemoteControlStore() {
 		get latencyMs() {
 			return latencyMs;
 		},
+		get collisionBlocked() {
+			return collisionBlocked;
+		},
+		get collisionDistance() {
+			return collisionDistance;
+		},
 
 		setConnectionStatus(status: ConnectionStatus) {
 			connectionStatus = status;
@@ -60,6 +70,10 @@ function createRemoteControlStore() {
 		},
 		setLatency(ms: number | null) {
 			latencyMs = ms;
+		},
+		setCollision(blocked: boolean, distance: number | null) {
+			collisionBlocked = blocked;
+			collisionDistance = distance;
 		},
 
 		reset,

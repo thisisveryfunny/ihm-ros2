@@ -4,11 +4,22 @@
 	interface Props {
 		activeDirection: Direction | null;
 		disabled?: boolean;
+		forwardBlocked?: boolean;
 		onDirectionStart: (direction: Direction) => void;
 		onDirectionEnd: () => void;
 	}
 
-	let { activeDirection, disabled = false, onDirectionStart, onDirectionEnd }: Props = $props();
+	let {
+		activeDirection,
+		disabled = false,
+		forwardBlocked = false,
+		onDirectionStart,
+		onDirectionEnd,
+	}: Props = $props();
+
+	function isDisabled(direction: Direction): boolean {
+		return disabled || (direction === 'front' && forwardBlocked);
+	}
 
 	type KeyButton = {
 		direction: Direction;
@@ -38,6 +49,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="grid grid-cols-3 grid-rows-2 gap-2" style="touch-action: none;">
 		{#each keys as key}
+			{@const keyDisabled = isDisabled(key.direction)}
 			<button
 				class="{key.row} {key.col} flex h-16 w-16 items-center justify-center rounded-xl border
 					font-mono text-xl font-bold
@@ -45,17 +57,17 @@
 					{isActive(key.direction)
 					? 'border-accent-500 bg-accent-500/20 text-accent-400'
 					: 'border-surface-600 bg-surface-700 text-slate-400 hover:bg-surface-600 hover:text-slate-200'}
-					{disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer active:scale-95'}"
+					{keyDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer active:scale-95'}"
 				aria-label={key.label}
-				{disabled}
+				disabled={keyDisabled}
 				onpointerdown={() => {
-					if (!disabled) onDirectionStart(key.direction);
+					if (!keyDisabled) onDirectionStart(key.direction);
 				}}
 				onpointerup={() => {
-					if (!disabled) onDirectionEnd();
+					if (!keyDisabled) onDirectionEnd();
 				}}
 				onpointerleave={() => {
-					if (!disabled && isActive(key.direction)) onDirectionEnd();
+					if (!keyDisabled && isActive(key.direction)) onDirectionEnd();
 				}}
 			>
 				{key.letter}

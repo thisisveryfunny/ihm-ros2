@@ -16,7 +16,8 @@ export type ServerMessage =
 	| { type: 'command'; direction: Direction }
 	| { type: 'status'; connectedRobots: number }
 	| { type: 'pong' }
-	| { type: 'error'; message: string };
+	| { type: 'error'; message: string }
+	| { type: 'collision-alert'; distance: number; blocked: boolean };
 
 const VALID_DIRECTIONS: ReadonlySet<string> = new Set(['front', 'back', 'left', 'right', 'stop']);
 
@@ -28,6 +29,13 @@ export function parseServerMessage(raw: string): ServerMessage | null {
 		if (msg.type === 'status' && typeof msg.connectedRobots === 'number') return msg;
 		if (msg.type === 'error' && typeof msg.message === 'string') return msg;
 		if (msg.type === 'command' && VALID_DIRECTIONS.has(msg.direction)) return msg;
+		if (
+			msg.type === 'collision-alert' &&
+			typeof msg.distance === 'number' &&
+			typeof msg.blocked === 'boolean'
+		) {
+			return { type: 'collision-alert', distance: msg.distance, blocked: msg.blocked };
+		}
 		return null;
 	} catch {
 		return null;

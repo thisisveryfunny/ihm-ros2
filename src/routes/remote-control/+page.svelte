@@ -42,6 +42,11 @@
 		unsubs.push(remoteControlClient.onError((msg) => remoteControlStore.setError(msg)));
 		unsubs.push(remoteControlClient.onLatency((ms) => remoteControlStore.setLatency(ms)));
 		unsubs.push(
+			remoteControlClient.onCollisionAlert(({ distance, blocked }) =>
+				remoteControlStore.setCollision(blocked, distance),
+			),
+		);
+		unsubs.push(
 			cameraControlClient.onError((msg) => remoteControlStore.setError(`Camera: ${msg}`)),
 		);
 		remoteControlClient.start();
@@ -56,6 +61,9 @@
 	});
 
 	function handleDirectionStart(direction: Direction) {
+		if (direction === 'front' && remoteControlStore.collisionBlocked) {
+			return;
+		}
 		remoteControlStore.setActiveDirection(direction);
 		remoteControlClient.sendCommand(direction);
 	}
@@ -160,6 +168,35 @@
 				</div>
 			{/if}
 			<CameraFeed onready={() => cameraReady = true} />
+
+			{#if remoteControlStore.collisionBlocked}
+				<div
+					class="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-3 rounded-t-xl border border-danger-500 bg-danger-500/90 px-4 py-3 text-sm font-semibold text-white shadow-lg"
+				>
+					<svg
+						class="h-5 w-5 shrink-0"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M12 9v4" />
+						<path d="M12 17h.01" />
+						<path
+							d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+						/>
+					</svg>
+					<span>
+						Obstacle détecté
+						{#if remoteControlStore.collisionDistance !== null}
+							à {remoteControlStore.collisionDistance.toFixed(2)} m
+						{/if}
+						— avancer bloqué
+					</span>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Control pads (1/3) — hidden until camera ready -->
@@ -168,6 +205,7 @@
 				<MovementPad
 					activeDirection={remoteControlStore.activeDirection}
 					disabled={remoteControlStore.connectionStatus !== 'connected'}
+					forwardBlocked={remoteControlStore.collisionBlocked}
 					onDirectionStart={handleDirectionStart}
 					onDirectionEnd={handleDirectionEnd}
 				/>

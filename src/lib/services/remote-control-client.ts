@@ -11,6 +11,7 @@ import { parseServerMessage } from '$lib/types/remote-control.js';
 type StatusCallback = (status: ConnectionStatus, connectedRobots: number) => void;
 type ErrorCallback = (message: string) => void;
 type LatencyCallback = (ms: number) => void;
+type CollisionCallback = (payload: { distance: number; blocked: boolean }) => void;
 
 const PING_INTERVAL_MS = 10_000;
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
@@ -21,6 +22,7 @@ export class RemoteControlClient {
 	#statusCallbacks = new Set<StatusCallback>();
 	#errorCallbacks = new Set<ErrorCallback>();
 	#latencyCallbacks = new Set<LatencyCallback>();
+	#collisionCallbacks = new Set<CollisionCallback>();
 	#reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	#pingTimer: ReturnType<typeof setInterval> | null = null;
 	#pingStart = 0;
@@ -63,6 +65,11 @@ export class RemoteControlClient {
 	onLatency(cb: LatencyCallback): () => void {
 		this.#latencyCallbacks.add(cb);
 		return () => this.#latencyCallbacks.delete(cb);
+	}
+
+	onCollisionAlert(cb: CollisionCallback): () => void {
+		this.#collisionCallbacks.add(cb);
+		return () => this.#collisionCallbacks.delete(cb);
 	}
 
 	#connect(): void {
@@ -115,6 +122,11 @@ export class RemoteControlClient {
 					break;
 				case 'error':
 					this.#notifyError(msg.message);
+					break;
+				case 'collision-alert':
+					this.#collisionCallbacks.forEach((cb) =>
+						cb({ distance: msg.distance, blocked: msg.blocked })
+					);
 					break;
 			}
 		});
