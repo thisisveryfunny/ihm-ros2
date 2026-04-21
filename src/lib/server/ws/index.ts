@@ -1,11 +1,38 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'node:http';
 import { parseClientMessage, type ServerMessage } from './protocol.js';
+import {
+	parseCameraClientMessage,
+	type CameraServerMessage
+} from './camera-protocol.js';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
+function attachHeartbeat(wss: WebSocketServer): void {
+	const interval = setInterval(() => {
+		for (const ws of wss.clients) {
+			if ((ws as any).__alive === false) {
+				ws.terminate();
+				continue;
+			}
+			(ws as any).__alive = false;
+			ws.ping();
+		}
+	}, HEARTBEAT_INTERVAL_MS);
+
+	wss.on('connection', (ws) => {
+		(ws as any).__alive = true;
+		ws.on('pong', () => {
+			(ws as any).__alive = true;
+		});
+	});
+
+	wss.on('close', () => clearInterval(interval));
+}
+
 export function attachWebSocketServer(server: Server): WebSocketServer {
 	const wss = new WebSocketServer({ noServer: true });
+	const cameraWss = new WebSocketServer({ noServer: true });
 
 	server.on('upgrade', (req, socket, head) => {
 		const { pathname } = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -13,10 +40,15 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 			wss.handleUpgrade(req, socket, head, (ws) => {
 				wss.emit('connection', ws, req);
 			});
+		} else if (pathname === '/ws/camera') {
+			cameraWss.handleUpgrade(req, socket, head, (ws) => {
+				cameraWss.emit('connection', ws, req);
+			});
 		}
-		// Non-/ws paths are left alone for Vite HMR
+		// Non-matching paths are left alone for Vite HMR
 	});
 
+	// ── /ws: movement + WebRTC signaling + robot alerts ─────────────────────
 	const robots = new Set<WebSocket>();
 	const controllers = new Set<WebSocket>();
 
@@ -84,26 +116,60 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 		});
 	});
 
-	// Heartbeat to detect dead connections
-	const interval = setInterval(() => {
-		for (const ws of wss.clients) {
-			if ((ws as any).__alive === false) {
-				ws.terminate();
-				continue;
-			}
-			(ws as any).__alive = false;
-			ws.ping();
-		}
-	}, HEARTBEAT_INTERVAL_MS);
+	attachHeartbeat(wss);
 
-	wss.on('connection', (ws) => {
-		(ws as any).__alive = true;
-		ws.on('pong', () => {
-			(ws as any).__alive = true;
+	// ── /ws/camera: dedicated servo control plane ───────────────────────────
+	const cameraRobots = new Set<WebSocket>();
+	const cameraControllers = new Set<WebSocket>();
+
+	function cameraBroadcast(targets: Set<WebSocket>, msg: CameraServerMessage) {
+		const payload = JSON.stringify(msg);
+		for (const ws of targets) {
+			if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+		}
+	}
+
+	function sendCameraStatusToControllers() {
+		cameraBroadcast(cameraControllers, {
+			type: 'status',
+			connectedRobots: cameraRobots.size
+		});
+	}
+
+	cameraWss.on('connection', (ws, req) => {
+		const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
+		const role = url.searchParams.get('role');
+
+		if (role === 'robot') {
+			cameraRobots.add(ws);
+			sendCameraStatusToControllers();
+			ws.on('close', () => {
+				cameraRobots.delete(ws);
+				sendCameraStatusToControllers();
+			});
+		} else {
+			cameraControllers.add(ws);
+			ws.send(JSON.stringify({ type: 'status', connectedRobots: cameraRobots.size }));
+			ws.on('close', () => cameraControllers.delete(ws));
+		}
+
+		ws.on('message', (data) => {
+			const msg = parseCameraClientMessage(data.toString());
+			if (!msg) {
+				ws.send(JSON.stringify({ type: 'error', message: 'Invalid message' }));
+				return;
+			}
+			if (msg.type === 'ping') {
+				ws.send(JSON.stringify({ type: 'pong' }));
+				return;
+			}
+			if (msg.type === 'camera') {
+				cameraBroadcast(cameraRobots, { type: 'camera', direction: msg.direction });
+			}
 		});
 	});
 
-	wss.on('close', () => clearInterval(interval));
+	attachHeartbeat(cameraWss);
 
 	return wss;
 }

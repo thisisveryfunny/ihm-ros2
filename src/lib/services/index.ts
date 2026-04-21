@@ -5,6 +5,7 @@
 
 import { ApiSpeedService, ApiImuService, ApiBatteryService } from './api/index.js';
 import { RemoteControlClient } from './remote-control-client.js';
+import { CameraControlClient } from './camera-control-client.js';
 
 export const speedService = new ApiSpeedService();
 
@@ -13,3 +14,5 @@ export const imuService = new ApiImuService();
 export const batteryService = new ApiBatteryService();
 
 export const remoteControlClient = new RemoteControlClient();
+
+export const cameraControlClient = new CameraControlClient();

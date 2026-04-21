@@ -1,19 +1,32 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { remoteControlClient } from '$lib/services/index.js';
+	import { remoteControlClient, cameraControlClient } from '$lib/services/index.js';
 	import { remoteControlStore } from '$lib/stores/remote-control.svelte.js';
 	import DirectionPad from '$lib/components/remote/DirectionPad.svelte';
 	import CameraFeed from '$lib/components/remote/CameraFeed.svelte';
 	import ConnectionPanel from '$lib/components/remote/ConnectionPanel.svelte';
 	import type { Direction } from '$lib/types/remote-control.js';
+	import type { CameraDirection } from '$lib/types/camera-control.js';
 
 	let cameraReady = $state(false);
 	const unsubs: Array<() => void> = [];
-	const pressedKeys = new Set<string>();
+	const pressedMovementKeys = new Set<string>();
+	const pressedCameraKeys = new Set<string>();
 
 	const KEY_TO_DIRECTION: Record<string, Direction> = {
-		ArrowUp: 'front',
-		ArrowDown: 'back',
+		w: 'front',
+		W: 'front',
+		s: 'back',
+		S: 'back',
+		a: 'left',
+		A: 'left',
+		d: 'right',
+		D: 'right',
+	};
+
+	const KEY_TO_CAMERA: Record<string, CameraDirection> = {
+		ArrowUp: 'up',
+		ArrowDown: 'down',
 		ArrowLeft: 'left',
 		ArrowRight: 'right',
 	};
@@ -27,12 +40,17 @@
 		);
 		unsubs.push(remoteControlClient.onError((msg) => remoteControlStore.setError(msg)));
 		unsubs.push(remoteControlClient.onLatency((ms) => remoteControlStore.setLatency(ms)));
+		unsubs.push(
+			cameraControlClient.onError((msg) => remoteControlStore.setError(`Camera: ${msg}`)),
+		);
 		remoteControlClient.start();
+		cameraControlClient.start();
 	});
 
 	onDestroy(() => {
 		unsubs.forEach((fn) => fn());
 		remoteControlClient.stop();
+		cameraControlClient.stop();
 		remoteControlStore.reset();
 	});
 
@@ -46,33 +64,65 @@
 		remoteControlClient.sendCommand('stop');
 	}
 
+	function handleCameraStart(direction: CameraDirection) {
+		cameraControlClient.sendCameraCommand(direction);
+	}
+
+	function handleCameraEnd() {
+		cameraControlClient.sendCameraCommand('stop');
+	}
+
 	function handleKeyDown(event: KeyboardEvent) {
-		const direction = KEY_TO_DIRECTION[event.key];
-		if (!direction || event.repeat) return;
-		event.preventDefault();
-		pressedKeys.add(event.key);
-		handleDirectionStart(direction);
+		if (event.repeat) return;
+
+		const movement = KEY_TO_DIRECTION[event.key];
+		if (movement) {
+			event.preventDefault();
+			pressedMovementKeys.add(event.key);
+			handleDirectionStart(movement);
+			return;
+		}
+
+		const camera = KEY_TO_CAMERA[event.key];
+		if (camera) {
+			event.preventDefault();
+			pressedCameraKeys.add(event.key);
+			handleCameraStart(camera);
+		}
 	}
 
 	function handleKeyUp(event: KeyboardEvent) {
-		if (!(event.key in KEY_TO_DIRECTION)) return;
-		event.preventDefault();
-		pressedKeys.delete(event.key);
+		if (event.key in KEY_TO_DIRECTION) {
+			event.preventDefault();
+			pressedMovementKeys.delete(event.key);
+			const remaining = [...pressedMovementKeys];
+			if (remaining.length > 0) {
+				handleDirectionStart(KEY_TO_DIRECTION[remaining[remaining.length - 1]]);
+			} else {
+				handleDirectionEnd();
+			}
+			return;
+		}
 
-		// If other arrow keys are still held, resume the most recent one
-		const remaining = [...pressedKeys].filter((k) => k in KEY_TO_DIRECTION);
-		if (remaining.length > 0) {
-			handleDirectionStart(KEY_TO_DIRECTION[remaining[remaining.length - 1]]);
-		} else {
-			handleDirectionEnd();
+		if (event.key in KEY_TO_CAMERA) {
+			event.preventDefault();
+			pressedCameraKeys.delete(event.key);
+			const remaining = [...pressedCameraKeys];
+			if (remaining.length > 0) {
+				handleCameraStart(KEY_TO_CAMERA[remaining[remaining.length - 1]]);
+			} else {
+				handleCameraEnd();
+			}
 		}
 	}
 
 	function handleBlur() {
-		pressedKeys.clear();
+		pressedMovementKeys.clear();
+		pressedCameraKeys.clear();
 		if (remoteControlStore.activeDirection) {
 			handleDirectionEnd();
 		}
+		handleCameraEnd();
 	}
 </script>
 
@@ -139,12 +189,13 @@
 			<div>
 				<p class="text-sm font-medium text-ros-orange">Raccourcis clavier</p>
 				<p class="mt-1 text-xs text-slate-500">
-					Utilisez les
-					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300"
-						>fleches</kbd
-					>
-					du clavier pour controler le robot. Le robot s'arrete automatiquement
-					lorsque la touche est relachee.
+					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300">W</kbd>
+					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300">A</kbd>
+					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300">S</kbd>
+					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300">D</kbd>
+					pour deplacer le robot,
+					<kbd class="rounded bg-surface-700 px-1.5 py-0.5 font-mono text-slate-300">fleches</kbd>
+					pour orienter la camera. Le mouvement s'arrete automatiquement au relachement.
 				</p>
 			</div>
 		</div>

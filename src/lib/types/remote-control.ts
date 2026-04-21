@@ -8,7 +8,9 @@ export type Direction = 'front' | 'back' | 'left' | 'right' | 'stop';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-export type ClientMessage = { type: 'command'; direction: Direction } | { type: 'ping' };
+export type ClientMessage =
+	| { type: 'command'; direction: Direction }
+	| { type: 'ping' };
 
 export type ServerMessage =
 	| { type: 'command'; direction: Direction }
@@ -16,13 +18,7 @@ export type ServerMessage =
 	| { type: 'pong' }
 	| { type: 'error'; message: string };
 
-const VALID_DIRECTIONS: ReadonlySet<string> = new Set([
-	'front',
-	'back',
-	'left',
-	'right',
-	'stop',
-]);
+const VALID_DIRECTIONS: ReadonlySet<string> = new Set(['front', 'back', 'left', 'right', 'stop']);
 
 /** Validates and parses an incoming server message. Returns null if invalid. */
 export function parseServerMessage(raw: string): ServerMessage | null {
