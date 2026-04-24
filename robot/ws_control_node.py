@@ -28,8 +28,10 @@ PAN_MAX = 180
 TILT_CENTER = 90
 TILT_MIN = 45
 TILT_MAX = 135
-PAN_STEP = 2   # degrees per tick
-TILT_STEP = 1  # degrees per tick
+# Fractional steps keep held camera controls slow and precise.
+# At 10 Hz, these are roughly 6 deg/sec pan and 4 deg/sec tilt.
+PAN_STEP = 0.6   # degrees per tick
+TILT_STEP = 0.4  # degrees per tick
 TICK_HZ = 10.0
 
 
@@ -201,16 +203,16 @@ class WSControlNode(Node):
     # ── Camera servo tick + handler ──────────────────────────────────
 
     @staticmethod
-    def _clamp(value: int, lo: int, hi: int) -> int:
+    def _clamp(value: float, lo: float, hi: float) -> float:
         return max(lo, min(hi, value))
 
-    def _publish_servo_angles(self, pan: int, tilt: int) -> None:
+    def _publish_servo_angles(self, pan: float, tilt: float) -> None:
         pan_msg = Int32()
-        pan_msg.data = int(pan)
+        pan_msg.data = int(round(pan))
         self.pan_pub.publish(pan_msg)
 
         tilt_msg = Int32()
-        tilt_msg.data = int(tilt)
+        tilt_msg.data = int(round(tilt))
         self.tilt_pub.publish(tilt_msg)
 
     def _servo_tick_loop(self) -> None:
@@ -236,7 +238,7 @@ class WSControlNode(Node):
                 tilt_a = self._tilt_angle
 
             self._publish_servo_angles(pan_a, tilt_a)
-            self.get_logger().info(f"Camera → pan={pan_a}° tilt={tilt_a}°")
+            self.get_logger().info(f"Camera → pan={pan_a:.1f}° tilt={tilt_a:.1f}°")
 
             time.sleep(self._tick_dt)
 
