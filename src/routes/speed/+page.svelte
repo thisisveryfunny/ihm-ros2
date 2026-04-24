@@ -4,7 +4,7 @@
     import { speedStore } from '$lib/stores/speed.svelte.js';
     import LineChart from '$lib/components/charts/LineChart.svelte';
     import StatCard from '$lib/components/cards/StatCard.svelte';
-    import { formatSpeed, formatAngularRate } from '$lib/utils/format.js';
+    import { formatSpeed } from '$lib/utils/format.js';
 
     let unsub: (() => void) | undefined;
 
@@ -28,15 +28,6 @@
         },
     ]);
 
-    const angularSeries = $derived([
-        {
-            name: 'Vitesse angulaire',
-            data: speedStore.history.map((r) => ({ timestamp: r.timestamp, value: r.angularZ })),
-            color: '#fb923c',
-            unit: 'rad/s',
-        },
-    ]);
-
     const hasData = $derived(speedStore.history.length > 0);
 </script>
 
@@ -44,7 +35,7 @@
     <!-- Page header -->
     <div>
         <h1 class="text-xl font-bold text-slate-100">Vitesse du Robot</h1>
-        <p class="mt-1 text-sm text-slate-500">Données de vitesse linéaire et angulaire en temps réel</p>
+        <p class="mt-1 text-sm text-slate-500">Données de vitesse linéaire en temps réel</p>
     </div>
 
     <!-- Stats row -->
@@ -101,14 +92,9 @@
         </StatCard>
     </div>
 
-    <!-- Angular speed card -->
+    <!-- Linear speed components -->
     {#if speedStore.current}
-        <div class="grid grid-cols-2 gap-4">
-            <StatCard
-                label="Vitesse angulaire (Z)"
-                value={formatAngularRate(speedStore.current.angularZ)}
-                sublabel="Rotation sur l'axe vertical"
-            />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <StatCard
                 label="Composante X"
                 value={formatSpeed(speedStore.current.linearX)}
@@ -121,11 +107,5 @@
     <div class="rounded-xl border border-surface-700 bg-surface-800 p-4">
         <h2 class="mb-4 text-sm font-medium text-slate-300">Vitesse linéaire dans le temps</h2>
         <LineChart series={speedSeries} yAxisLabel="m/s" loading={!hasData} />
-    </div>
-
-    <!-- Angular speed chart -->
-    <div class="rounded-xl border border-surface-700 bg-surface-800 p-4">
-        <h2 class="mb-4 text-sm font-medium text-slate-300">Vitesse angulaire dans le temps</h2>
-        <LineChart series={angularSeries} yAxisLabel="rad/s" loading={!hasData} />
     </div>
 </div>

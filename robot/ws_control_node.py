@@ -22,17 +22,19 @@ BATTERY_FULL_V = 8.4
 
 # Camera servo config — driven via Yahboom /servo_s1 (pan) and /servo_s2 (tilt).
 # Yahboom servos use an absolute 0-180 degree range with 90 as the centre.
-PAN_CENTER = 90
-PAN_MIN = 0
-PAN_MAX = 180
-TILT_CENTER = 90
-TILT_MIN = 45
-TILT_MAX = 135
+PAN_CENTER = 0
+PAN_MIN = -90
+PAN_MAX = 90
+
+TILT_MIN = -90.0
+TILT_MAX = 30.0
+FRONT_PAN_ANGLE = 0
+FRONT_TILT_ANGLE = -45
 # Fractional steps keep held camera controls slow and precise.
 # At 10 Hz, these are roughly 6 deg/sec pan and 4 deg/sec tilt.
 PAN_STEP = 0.6   # degrees per tick
 TILT_STEP = 0.4  # degrees per tick
-TICK_HZ = 10.0
+TICK_HZ = 75.0
 
 
 def battery_percentage_from_deci_volts(raw: int) -> tuple[float, float]:
@@ -66,14 +68,18 @@ class WSControlNode(Node):
         self._loop = None
 
         # ── Camera servo state ───────────────────────────────────────
-        self._pan_angle = PAN_CENTER
-        self._tilt_angle = TILT_CENTER
+        self._pan_angle = FRONT_PAN_ANGLE
+        self._tilt_angle = FRONT_TILT_ANGLE
         self._pan_dir = 0   # -1 left, +1 right, 0 stop
         self._tilt_dir = 0  # -1 down, +1 up, 0 stop
         self._servo_lock = threading.Lock()
         self._tick_dt = 1.0 / TICK_HZ
 
-        # Publish initial centred pose so the servos snap to a known state
+        # Publish initial front-facing pose so the servos snap to a known state.
+        self.get_logger().info(
+            f"Camera startup pose → self._pan_angle={self._pan_angle:.1f}° "
+            f"self._tilt_angle={self._tilt_angle:.1f}°"
+        )
         self._publish_servo_angles(self._pan_angle, self._tilt_angle)
 
         # Tick thread drives continuous pan/tilt motion while a key is held
@@ -207,12 +213,15 @@ class WSControlNode(Node):
         return max(lo, min(hi, value))
 
     def _publish_servo_angles(self, pan: float, tilt: float) -> None:
+        pan_degrees = int(round(pan))
+        tilt_degrees = int(round(tilt))
+
         pan_msg = Int32()
-        pan_msg.data = int(round(pan))
+        pan_msg.data = pan_degrees
         self.pan_pub.publish(pan_msg)
 
         tilt_msg = Int32()
-        tilt_msg.data = int(round(tilt))
+        tilt_msg.data = tilt_degrees
         self.tilt_pub.publish(tilt_msg)
 
     def _servo_tick_loop(self) -> None:
@@ -238,7 +247,6 @@ class WSControlNode(Node):
                 tilt_a = self._tilt_angle
 
             self._publish_servo_angles(pan_a, tilt_a)
-            self.get_logger().info(f"Camera → pan={pan_a:.1f}° tilt={tilt_a:.1f}°")
 
             time.sleep(self._tick_dt)
 

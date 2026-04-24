@@ -124,7 +124,7 @@
                 </svg>
             </div>
             <h3 class="font-semibold text-slate-100">Vitesse</h3>
-            <p class="mt-1 text-sm text-slate-500">Vitesse linéaire et angulaire en temps réel avec historique</p>
+            <p class="mt-1 text-sm text-slate-500">Vitesse linéaire en temps réel avec historique</p>
             <div class="mt-3 flex items-center gap-1 text-xs font-medium text-accent-400">
                 <span>Voir la page</span>
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
