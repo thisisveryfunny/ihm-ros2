@@ -24,6 +24,16 @@ from nav_msgs.msg import Odometry
 import requests
 
 
+BATTERY_EMPTY_V = 6.0
+BATTERY_FULL_V = 8.4
+
+
+def battery_percentage_from_centivolts(raw: int) -> tuple[float, float]:
+    voltage = raw / 100.0
+    percentage = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100
+    return voltage, max(0.0, min(100.0, percentage))
+
+
 class TelemetryNode(Node):
     # QoS matching the Yahboom driver (publishes with reliable/volatile)
     SENSOR_QOS = QoSProfile(
@@ -161,7 +171,11 @@ class TelemetryNode(Node):
 
     def _do_post(self, imu, battery, speed):
         if battery is not None:
-            self._post('/api/batterie', {'percentage': float(battery)})
+            voltage, percentage = battery_percentage_from_centivolts(battery)
+            self.get_logger().info(
+                f'Battery raw={battery} voltage={voltage:.2f}V percentage={percentage:.1f}%'
+            )
+            self._post('/api/batterie', {'percentage': float(percentage)})
 
         if imu is not None:
             self._post(

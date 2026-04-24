@@ -8,7 +8,7 @@ export type BatteryStatus = 'charging' | 'discharging' | 'full' | 'unknown';
 export interface BatteryReading {
     timestamp: number;
     percentage: number; // 0–100
-    voltage: number; // Volts (7S LiPo: ~22V–29.4V)
+    voltage: number; // Volts (2S battery: ~6.0V-8.4V)
     current: number; // Amperes (positive = charging, negative = discharging)
     temperature: number; // Celsius
     status: BatteryStatus;

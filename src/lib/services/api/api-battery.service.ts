@@ -7,6 +7,8 @@ import type { BatteryDataService } from '../data-service.js';
 import type { BatteryReading } from '$lib/types/battery.js';
 
 const POLL_INTERVAL_MS = 2000;
+const BATTERY_EMPTY_V = 6.0;
+const BATTERY_FULL_V = 8.4;
 
 interface BatterieRow {
 	id: number;
@@ -14,9 +16,9 @@ interface BatterieRow {
 	createdAt: string;
 }
 
-/** Approximate 7S LiPo voltage from percentage (22V empty – 29.4V full). */
+/** Approximate 2S battery voltage from percentage (6.0V empty - 8.4V full). */
 function estimateVoltage(percentage: number): number {
-	return 22 + (percentage / 100) * 7.4;
+	return BATTERY_EMPTY_V + (percentage / 100) * (BATTERY_FULL_V - BATTERY_EMPTY_V);
 }
 
 export class ApiBatteryService implements BatteryDataService {

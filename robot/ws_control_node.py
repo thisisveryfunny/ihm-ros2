@@ -17,6 +17,8 @@ WS_SERVER = "ws://10.10.211.145:5173/ws?role=robot"
 WS_CAMERA_SERVER = "ws://10.10.211.145:5173/ws/camera?role=robot"
 API_BASE = "http://10.10.211.145:5173/api"
 THROTTLE_INTERVAL = 1.0  # seconds
+BATTERY_EMPTY_V = 6.0
+BATTERY_FULL_V = 8.4
 
 # Camera servo config — driven via Yahboom /servo_s1 (pan) and /servo_s2 (tilt).
 # Yahboom servos use an absolute 0-180 degree range with 90 as the centre.
@@ -29,6 +31,12 @@ TILT_MAX = 135
 PAN_STEP = 2   # degrees per tick
 TILT_STEP = 1  # degrees per tick
 TICK_HZ = 10.0
+
+
+def battery_percentage_from_centivolts(raw: int) -> tuple[float, float]:
+    voltage = raw / 100.0
+    percentage = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100
+    return voltage, max(0.0, min(100.0, percentage))
 
 
 class WSControlNode(Node):
@@ -130,14 +138,10 @@ class WSControlNode(Node):
     # 🔋 Battery
     def battery_cb(self, msg):
         raw = msg.data
-        self.get_logger().info(f"Battery raw UInt16: {raw}")
-
-        # TODO: adjust divisor once the unit is confirmed via `ros2 topic echo /battery`
-        voltage = raw / 100.0  # centivolts assumption (e.g. 750 → 7.5V)
-        min_v = 6.4
-        max_v = 8.4
-        percentage = (voltage - min_v) / (max_v - min_v) * 100
-        percentage = max(0, min(100, percentage))
+        voltage, percentage = battery_percentage_from_centivolts(raw)
+        self.get_logger().info(
+            f"Battery raw={raw} voltage={voltage:.2f}V percentage={percentage:.1f}%"
+        )
 
         payload = {"percentage": float(percentage)}
         if self._post_throttled("batterie", payload):
