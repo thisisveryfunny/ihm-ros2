@@ -179,7 +179,7 @@ export function buildGaugeChartOption(value: number, label: string): EChartsOpti
 					fontSize: 36,
 					fontWeight: 'bold',
 					offsetCenter: [0, '25%'],
-					formatter: '{value}%',
+					formatter: (val: number) => `${Math.round(val)}%`,
 					color
 				},
 				data: [{ value: clampedValue, name: label }]

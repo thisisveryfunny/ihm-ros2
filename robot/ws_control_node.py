@@ -33,8 +33,8 @@ TILT_STEP = 1  # degrees per tick
 TICK_HZ = 10.0
 
 
-def battery_percentage_from_centivolts(raw: int) -> tuple[float, float]:
-    voltage = raw / 100.0
+def battery_percentage_from_deci_volts(raw: int) -> tuple[float, float]:
+    voltage = raw / 10.0
     percentage = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100
     return voltage, max(0.0, min(100.0, percentage))
 
@@ -138,7 +138,7 @@ class WSControlNode(Node):
     # 🔋 Battery
     def battery_cb(self, msg):
         raw = msg.data
-        voltage, percentage = battery_percentage_from_centivolts(raw)
+        voltage, percentage = battery_percentage_from_deci_volts(raw)
         self.get_logger().info(
             f"Battery raw={raw} voltage={voltage:.2f}V percentage={percentage:.1f}%"
         )

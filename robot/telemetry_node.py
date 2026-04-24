@@ -28,8 +28,8 @@ BATTERY_EMPTY_V = 6.0
 BATTERY_FULL_V = 8.4
 
 
-def battery_percentage_from_centivolts(raw: int) -> tuple[float, float]:
-    voltage = raw / 100.0
+def battery_percentage_from_deci_volts(raw: int) -> tuple[float, float]:
+    voltage = raw / 10.0
     percentage = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100
     return voltage, max(0.0, min(100.0, percentage))
 
@@ -171,7 +171,7 @@ class TelemetryNode(Node):
 
     def _do_post(self, imu, battery, speed):
         if battery is not None:
-            voltage, percentage = battery_percentage_from_centivolts(battery)
+            voltage, percentage = battery_percentage_from_deci_volts(battery)
             self.get_logger().info(
                 f'Battery raw={battery} voltage={voltage:.2f}V percentage={percentage:.1f}%'
             )
