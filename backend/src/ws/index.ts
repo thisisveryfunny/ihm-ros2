@@ -60,7 +60,11 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 				return;
 			}
 			if (msg.type === 'command') {
-				broadcast(robots, { type: 'command', direction: msg.direction });
+				broadcast(robots, {
+					type: 'command',
+					direction: msg.direction,
+					speedMode: msg.speedMode
+				});
 				return;
 			}
 			// WebRTC signaling relay

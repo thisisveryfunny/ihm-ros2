@@ -6,13 +6,22 @@
 	import CameraPad from '$lib/components/remote/CameraPad.svelte';
 	import CameraFeed from '$lib/components/remote/CameraFeed.svelte';
 	import ConnectionPanel from '$lib/components/remote/ConnectionPanel.svelte';
-	import type { Direction } from '$lib/types/remote-control.js';
+	import type { Direction, SpeedMode } from '$lib/types/remote-control.js';
 	import type { CameraDirection } from '$lib/types/camera-control.js';
 
 	let cameraReady = $state(false);
+	let speedModeIndex = $state(0);
 	const unsubs: Array<() => void> = [];
 	const pressedMovementKeys = new Set<string>();
 	const pressedCameraKeys = new Set<string>();
+
+	const SPEED_MODES: Array<{ mode: SpeedMode; label: string; speed: number }> = [
+		{ mode: 'lent', label: 'LENT', speed: 0.3 },
+		{ mode: 'normal', label: 'NORMAL', speed: 0.5 },
+		{ mode: 'rapide', label: 'RAPIDE', speed: 0.7 }
+	];
+
+	const selectedSpeedMode = $derived(SPEED_MODES[speedModeIndex]);
 
 	const KEY_TO_DIRECTION: Record<string, Direction> = {
 		w: 'front',
@@ -22,14 +31,14 @@
 		a: 'left',
 		A: 'left',
 		d: 'right',
-		D: 'right',
+		D: 'right'
 	};
 
 	const KEY_TO_CAMERA: Record<string, CameraDirection> = {
 		ArrowUp: 'up',
 		ArrowDown: 'down',
 		ArrowLeft: 'left',
-		ArrowRight: 'right',
+		ArrowRight: 'right'
 	};
 
 	onMount(() => {
@@ -37,17 +46,17 @@
 			remoteControlClient.onStatusChange((status, robots) => {
 				remoteControlStore.setConnectionStatus(status);
 				remoteControlStore.setConnectedRobots(robots);
-			}),
+			})
 		);
 		unsubs.push(remoteControlClient.onError((msg) => remoteControlStore.setError(msg)));
 		unsubs.push(remoteControlClient.onLatency((ms) => remoteControlStore.setLatency(ms)));
 		unsubs.push(
 			remoteControlClient.onCollisionAlert(({ distance, blocked }) =>
-				remoteControlStore.setCollision(blocked, distance),
-			),
+				remoteControlStore.setCollision(blocked, distance)
+			)
 		);
 		unsubs.push(
-			cameraControlClient.onError((msg) => remoteControlStore.setError(`Camera: ${msg}`)),
+			cameraControlClient.onError((msg) => remoteControlStore.setError(`Camera: ${msg}`))
 		);
 		remoteControlClient.start();
 		cameraControlClient.start();
@@ -65,12 +74,19 @@
 			return;
 		}
 		remoteControlStore.setActiveDirection(direction);
-		remoteControlClient.sendCommand(direction);
+		remoteControlClient.sendCommand(direction, selectedSpeedMode.mode);
 	}
 
 	function handleDirectionEnd() {
 		remoteControlStore.setActiveDirection(null);
-		remoteControlClient.sendCommand('stop');
+		remoteControlClient.sendCommand('stop', selectedSpeedMode.mode);
+	}
+
+	function handleSpeedModeChange() {
+		const activeDirection = remoteControlStore.activeDirection;
+		if (activeDirection) {
+			remoteControlClient.sendCommand(activeDirection, selectedSpeedMode.mode);
+		}
 	}
 
 	function handleCameraStart(direction: CameraDirection) {
@@ -159,15 +175,22 @@
 		<!-- Camera feed (2/3) -->
 		<div class="relative lg:col-span-2">
 			{#if !cameraReady}
-				<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl border border-surface-700 bg-surface-800">
+				<div
+					class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl border border-surface-700 bg-surface-800"
+				>
 					<svg class="h-8 w-8 animate-spin text-ros-orange" viewBox="0 0 24 24" fill="none">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+						></circle>
+						<path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+						></path>
 					</svg>
 					<p class="text-sm text-slate-400">Connexion en cours...</p>
 				</div>
 			{/if}
-			<CameraFeed onready={() => cameraReady = true} />
+			<CameraFeed onready={() => (cameraReady = true)} />
 
 			{#if remoteControlStore.collisionBlocked}
 				<div
@@ -202,6 +225,31 @@
 		<!-- Control pads (1/3) — hidden until camera ready -->
 		{#if cameraReady}
 			<div class="flex flex-col items-center justify-center gap-4">
+				<div class="w-full rounded-xl border border-surface-700 bg-surface-800 p-5">
+					<div class="mb-4 flex items-center justify-between gap-4">
+						<p class="text-xs font-medium tracking-wider text-slate-500 uppercase">Vitesse</p>
+						<p class="font-mono text-sm font-semibold text-accent-400">
+							{selectedSpeedMode.label} · {selectedSpeedMode.speed.toFixed(1)} m/s
+						</p>
+					</div>
+					<input
+						class="h-2 w-full cursor-pointer accent-accent-500"
+						type="range"
+						min="0"
+						max="2"
+						step="1"
+						bind:value={speedModeIndex}
+						aria-label="Mode de vitesse"
+						oninput={handleSpeedModeChange}
+					/>
+					<div class="mt-3 grid grid-cols-3 text-xs font-medium text-slate-500">
+						{#each SPEED_MODES as option}
+							<span class={option.mode === selectedSpeedMode.mode ? 'text-accent-400' : ''}>
+								{option.label}
+							</span>
+						{/each}
+					</div>
+				</div>
 				<MovementPad
 					activeDirection={remoteControlStore.activeDirection}
 					disabled={remoteControlStore.connectionStatus !== 'connected'}

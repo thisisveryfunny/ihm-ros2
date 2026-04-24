@@ -5,7 +5,12 @@
  * Auto-reconnects with exponential backoff.
  */
 
-import type { Direction, ClientMessage, ConnectionStatus } from '$lib/types/remote-control.js';
+import type {
+	Direction,
+	ClientMessage,
+	ConnectionStatus,
+	SpeedMode
+} from '$lib/types/remote-control.js';
 import { parseServerMessage } from '$lib/types/remote-control.js';
 
 type StatusCallback = (status: ConnectionStatus, connectedRobots: number) => void;
@@ -48,8 +53,8 @@ export class RemoteControlClient {
 		this.#notifyStatus('disconnected');
 	}
 
-	sendCommand(direction: Direction): void {
-		this.#send({ type: 'command', direction });
+	sendCommand(direction: Direction, speedMode: SpeedMode = 'lent'): void {
+		this.#send({ type: 'command', direction, speedMode });
 	}
 
 	onStatusChange(cb: StatusCallback): () => void {

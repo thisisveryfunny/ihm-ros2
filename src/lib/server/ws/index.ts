@@ -1,10 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'node:http';
 import { parseClientMessage, type ServerMessage } from './protocol.js';
-import {
-	parseCameraClientMessage,
-	type CameraServerMessage
-} from './camera-protocol.js';
+import { parseCameraClientMessage, type CameraServerMessage } from './camera-protocol.js';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -93,7 +90,11 @@ export function attachWebSocketServer(server: Server): WebSocketServer {
 				return;
 			}
 			if (msg.type === 'command') {
-				broadcast(robots, { type: 'command', direction: msg.direction });
+				broadcast(robots, {
+					type: 'command',
+					direction: msg.direction,
+					speedMode: msg.speedMode
+				});
 				return;
 			}
 			// WebRTC signaling relay

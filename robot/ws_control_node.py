@@ -35,6 +35,11 @@ FRONT_TILT_ANGLE = -45
 PAN_STEP = 0.6   # degrees per tick
 TILT_STEP = 0.4  # degrees per tick
 TICK_HZ = 75.0
+SPEED_MODES = {
+    "lent": 0.3,
+    "normal": 0.5,
+    "rapide": 0.7,
+}
 
 
 def battery_percentage_from_deci_volts(raw: int) -> tuple[float, float]:
@@ -187,16 +192,22 @@ class WSControlNode(Node):
             return
 
         direction = data.get("direction")
-        self.get_logger().info(f"COMMAND RECEIVED → direction={direction}")
+        speed_mode = data.get("speedMode")
+        if speed_mode not in SPEED_MODES:
+            speed_mode = "lent"
+        linear_speed = SPEED_MODES[speed_mode]
+        self.get_logger().info(
+            f"COMMAND RECEIVED → direction={direction}, speedMode={speed_mode}"
+        )
 
         if direction == "front":
             if self.obstacle_front:
                 self.get_logger().warn("Blocked forward command (obstacle)")
                 self.publish_cmd(0.0, 0.0)
             else:
-                self.publish_cmd(0.3, 0.0)
+                self.publish_cmd(linear_speed, 0.0)
         elif direction == "back":
-            self.publish_cmd(-0.3, 0.0)
+            self.publish_cmd(-linear_speed, 0.0)
         elif direction == "left":
             self.publish_cmd(0.0, 1.0)
         elif direction == "right":
