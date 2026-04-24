@@ -27,8 +27,8 @@ TILT_CENTER = 90
 TILT_MIN = 45
 TILT_MAX = 135
 PAN_STEP = 2   # degrees per tick
-TILT_STEP = 2  # degrees per tick
-TICK_HZ = 30.0
+TILT_STEP = 1  # degrees per tick
+TICK_HZ = 10.0
 
 
 class WSControlNode(Node):
