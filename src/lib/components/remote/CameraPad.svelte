@@ -24,29 +24,29 @@
 			label: 'Haut',
 			row: 'row-start-1',
 			col: 'col-start-2',
-			path: 'M18 15l-6-6-6 6',
+			path: 'M18 15l-6-6-6 6'
 		},
 		{
 			direction: 'left',
 			label: 'Gauche',
 			row: 'row-start-2',
 			col: 'col-start-1',
-			path: 'M15 18l-6-6 6-6',
+			path: 'M15 18l-6-6 6-6'
 		},
 		{
 			direction: 'right',
 			label: 'Droite',
 			row: 'row-start-2',
 			col: 'col-start-3',
-			path: 'M9 18l6-6-6-6',
+			path: 'M9 18l6-6-6-6'
 		},
 		{
 			direction: 'down',
 			label: 'Bas',
 			row: 'row-start-3',
 			col: 'col-start-2',
-			path: 'M6 9l6 6 6-6',
-		},
+			path: 'M6 9l6 6 6-6'
+		}
 	];
 
 	function isActive(direction: CameraDirection): boolean {
@@ -55,9 +55,7 @@
 </script>
 
 <div class="rounded-xl border border-surface-700 bg-surface-800 p-6">
-	<p class="mb-4 text-center text-xs font-medium uppercase tracking-wider text-slate-500">
-		Camera
-	</p>
+	<p class="mb-4 text-center text-xs font-medium tracking-wider text-slate-500 uppercase">Camera</p>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="grid grid-cols-3 grid-rows-3 gap-2" style="touch-action: none;">
@@ -94,26 +92,6 @@
 				</svg>
 			</button>
 		{/each}
-
-		<!-- Center recenter button -->
-		<button
-			class="col-start-2 row-start-2 flex h-16 w-16 items-center justify-center rounded-xl border
-				transition-all duration-100 select-none cursor-pointer
-				border-surface-600 bg-surface-700 text-slate-400
-				hover:border-danger-500 hover:bg-danger-500/20 hover:text-danger-400
-				active:scale-95
-				{disabled ? 'cursor-not-allowed opacity-40' : ''}"
-			aria-label="Stopper"
-			{disabled}
-			onclick={() => {
-				if (!disabled) {
-					onDirectionStart('stop');
-					onDirectionEnd();
-				}
-			}}
-		>
-			<span class="text-xs font-bold uppercase">Stop</span>
-		</button>
 	</div>
 
 	<p class="mt-4 text-center text-xs text-slate-600">Clavier : flèches</p>

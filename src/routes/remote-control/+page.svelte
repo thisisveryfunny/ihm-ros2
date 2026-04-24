@@ -222,49 +222,47 @@
 			{/if}
 		</div>
 
-		<!-- Control pads (1/3) — hidden until camera ready -->
-		{#if cameraReady}
-			<div class="flex flex-col items-center justify-center gap-4">
-				<div class="w-full rounded-xl border border-surface-700 bg-surface-800 p-5">
-					<div class="mb-4 flex items-center justify-between gap-4">
-						<p class="text-xs font-medium tracking-wider text-slate-500 uppercase">Vitesse</p>
-						<p class="font-mono text-sm font-semibold text-accent-400">
-							{selectedSpeedMode.label} · {selectedSpeedMode.speed.toFixed(1)} m/s
-						</p>
-					</div>
-					<input
-						class="h-2 w-full cursor-pointer accent-accent-500"
-						type="range"
-						min="0"
-						max="2"
-						step="1"
-						bind:value={speedModeIndex}
-						aria-label="Mode de vitesse"
-						oninput={handleSpeedModeChange}
-					/>
-					<div class="mt-3 grid grid-cols-3 text-xs font-medium text-slate-500">
-						{#each SPEED_MODES as option}
-							<span class={option.mode === selectedSpeedMode.mode ? 'text-accent-400' : ''}>
-								{option.label}
-							</span>
-						{/each}
-					</div>
+		<!-- Control pads (1/3) -->
+		<div class="flex flex-col items-center justify-center gap-4">
+			<div class="w-64 rounded-xl border border-surface-700 bg-surface-800 p-5">
+				<div class="mb-4 flex items-center justify-between gap-4">
+					<p class="text-xs font-medium tracking-wider text-slate-500 uppercase">Vitesse</p>
+					<p class="font-mono text-sm font-semibold text-accent-400">
+						{selectedSpeedMode.label} · {selectedSpeedMode.speed.toFixed(1)} m/s
+					</p>
 				</div>
-				<MovementPad
-					activeDirection={remoteControlStore.activeDirection}
-					disabled={remoteControlStore.connectionStatus !== 'connected'}
-					forwardBlocked={remoteControlStore.collisionBlocked}
-					onDirectionStart={handleDirectionStart}
-					onDirectionEnd={handleDirectionEnd}
+				<input
+					class="h-2 w-full cursor-pointer accent-accent-500"
+					type="range"
+					min="0"
+					max="2"
+					step="1"
+					bind:value={speedModeIndex}
+					aria-label="Mode de vitesse"
+					oninput={handleSpeedModeChange}
 				/>
-				<CameraPad
-					activeDirection={remoteControlStore.activeCameraDirection}
-					disabled={remoteControlStore.connectionStatus !== 'connected'}
-					onDirectionStart={handleCameraStart}
-					onDirectionEnd={handleCameraEnd}
-				/>
+				<div class="mt-3 grid grid-cols-3 text-xs font-medium text-slate-500">
+					{#each SPEED_MODES as option}
+						<span class={option.mode === selectedSpeedMode.mode ? 'text-accent-400' : ''}>
+							{option.label}
+						</span>
+					{/each}
+				</div>
 			</div>
-		{/if}
+			<MovementPad
+				activeDirection={remoteControlStore.activeDirection}
+				disabled={remoteControlStore.connectionStatus !== 'connected'}
+				forwardBlocked={remoteControlStore.collisionBlocked}
+				onDirectionStart={handleDirectionStart}
+				onDirectionEnd={handleDirectionEnd}
+			/>
+			<CameraPad
+				activeDirection={remoteControlStore.activeCameraDirection}
+				disabled={remoteControlStore.connectionStatus !== 'connected'}
+				onDirectionStart={handleCameraStart}
+				onDirectionEnd={handleCameraEnd}
+			/>
+		</div>
 	</div>
 
 	<!-- Info banner -->
