@@ -34,54 +34,17 @@ Le systeme est compose de quatre parties principales :
 - Python 3.10+
 - Acces aux peripheriques du robot : camera, lidar, port serie MicroROS
 
-### Depot du projet
-
-Les commandes ci-dessous supposent que le projet est place dans :
-
-```bash
-cd ~/ihm-ros2
-```
-
-Si le dossier porte un autre nom, remplacer `~/ihm-ros2` par le chemin reel du projet.
-
 ---
 
-## 3. Configuration initiale de l'application web
+## 3. Répertoire GitHub 
 
-Installer les dependances Node.js :
+### Code source disponible sur GitHub
+https://github.com/thisisveryfunny/ihm-ros2
 
+Pour clôner le répertoire:
 ```bash
-npm install
+git clone https://github.com/thisisveryfunny/ihm-ros2.git
 ```
-
-Creer le fichier `.env` a la racine du projet :
-
-```bash
-cat > .env << 'EOF'
-DATABASE_URL=postgresql://ros2:ros2@localhost:5436/ros2
-PORT=3000
-HOST=0.0.0.0
-EOF
-```
-
-Demarrer PostgreSQL :
-
-```bash
-npm run db:start
-```
-
-Verifier que la base est disponible :
-
-```bash
-docker exec ros2-yaboom-ihm pg_isready -U ros2 -d ros2
-```
-
-Initialiser ou synchroniser le schema de base de donnees :
-
-```bash
-npm run db:push
-```
-
 ---
 
 ## 4. Execution en developpement avec `npm run dev`
@@ -91,13 +54,8 @@ Le mode developpement sert pendant les tests, les demonstrations locales et les 
 Commande :
 
 ```bash
+cd ~/ihm-ros2
 npm run dev
-```
-
-Ce script lance :
-
-```bash
-vite dev --host
 ```
 
 Concretement, cela demarre le serveur Vite/SvelteKit en mode developpement.
@@ -109,7 +67,6 @@ Concretement, cela demarre le serveur Vite/SvelteKit en mode developpement.
 | Port par defaut | `5173` |
 | URL locale | `http://localhost:5173` |
 | Acces reseau | Active par `--host`, donc accessible depuis une autre machine du meme reseau |
-| Rechargement automatique | Oui, les modifications du code sont rechargees automatiquement |
 | WebSocket robot | Disponible sur `/ws` |
 | API REST | Disponible sur `/api/batterie`, `/api/vitesse`, `/api/imu` |
 | Usage recommande | Developpement et tests locaux uniquement |
@@ -118,26 +75,24 @@ Apres le lancement, Vite affiche une sortie semblable a :
 
 ```text
 Local:   http://localhost:5173/
-Network: http://192.168.x.x:5173/
+Network: http://192.168.x.x:5173/ ou http://10.10.211.x:5173/
 ```
 
 Pour utiliser l'interface depuis un autre appareil du meme reseau, ouvrir l'URL `Network` dans le navigateur.
 
 ### Point important pour le robot
 
-En mode developpement, les noeuds robot doivent pointer vers le port `5173`.
+En mode developpement, le fichier `robot/ws_control_node.py` doit pointer vers l'adresse IP de la machine qui execute `npm run dev`, avec le port `5173`.
 
-Exemples :
+Les valeurs a verifier dans `robot/ws_control_node.py` sont :
 
-```bash
-python3 telemetry_node.py --ros-args -p server_url:=http://192.168.x.x:5173
-python3 control_node.py --ros-args -p server_url:=192.168.x.x:5173
-python3 collision_node.py --ros-args -p server_url:=192.168.x.x:5173
-SERVER_URL=192.168.x.x:5173 python3 camera_node.py
-python3 sign_detection_node.py --ros-args -p server_url:=192.168.x.x:5173
+```python
+WS_SERVER = "ws://ADRESSE_IP_SERVEUR:5173/ws?role=robot"
+WS_CAMERA_SERVER = "ws://ADRESSE_IP_SERVEUR:5173/ws/camera?role=robot"
+API_BASE = "http://ADRESSE_IP_SERVEUR:5173/api"
 ```
 
-Remplacer `192.168.x.x` par l'adresse IP de la machine qui execute `npm run dev`.
+Remplacer `ADRESSE_IP_SERVEUR` par l'adresse IP reelle de la machine qui execute l'application web.
 
 Pour trouver l'adresse IP Wi-Fi du robot ou du serveur :
 
@@ -219,25 +174,17 @@ HOST=0.0.0.0
 | `PORT` | Port HTTP du serveur de production |
 | `HOST` | Adresse d'ecoute. `0.0.0.0` permet l'acces depuis le reseau |
 
-### 5.4 Verification rapide apres demarrage
-
-Tester l'API batterie :
-
-```bash
-curl http://localhost:3000/api/batterie
-```
-
-Si la base est accessible, la reponse doit etre un tableau JSON, par exemple :
-
-```json
-[]
-```
-
 ---
 
 ## 6. Procedure complete de demarrage du robot
 
-Les etapes suivantes decrivent le lancement manuel complet du systeme.
+Les etapes suivantes reprennent la procedure de lancement utilisee pour le robot.
+
+Source de reference des commandes robot :
+
+```text
+/Users/return/Obsidian/main/Yahboom_robot_commands.md
+```
 
 ### Terminal 1 - Environnement ROS2 du robot
 
@@ -273,48 +220,41 @@ Si le robot utilise un autre port serie, adapter `/dev/ttyUSB0`.
 
 ### Terminal 3 - Application web
 
-#### Option recommandee pour la remise client : production
+La procedure historique lance le serveur web en mode developpement :
 
 ```bash
 export ROS_DOMAIN_ID=25
 cd ~/ihm-ros2
 
-npm run db:start
+npm run dev
+```
+
+Le tableau de bord est alors disponible sur le port `5173`.
+
+Pour une remise client en mode production, remplacer `npm run dev` par :
+
+```bash
+export ROS_DOMAIN_ID=25
+cd ~/ihm-ros2
+
 npm run build
 npm start
 ```
 
 Le tableau de bord est alors disponible sur le port `3000`.
 
-#### Option developpement : `npm run dev`
+### Terminal 4 - Creation du package ROS2
 
-```bash
-export ROS_DOMAIN_ID=25
-cd ~/ihm-ros2
-
-npm run db:start
-npm run dev
-```
-
-Le tableau de bord est alors disponible sur le port `5173`.
-
-### Terminal 4 - Creation du package ROS2 si necessaire
-
-Cette etape est requise seulement si le package `ihm_robot` n'existe pas deja dans le workspace ROS2.
-
-Dans le conteneur ROS2 :
+Dans le conteneur ROS2 ouvert au Terminal 1 :
 
 ```bash
 export ROS_DOMAIN_ID=25
 
-mkdir -p ~/ros2_ws/src
-cd ~/ros2_ws/src
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 
-ros2 pkg create \
-  --build-type ament_python \
-  --node-name ws_control_node \
-  ihm_robot \
-  --dependencies rclpy std_msgs sensor_msgs geometry_msgs nav_msgs
+ros2 pkg create --build-type ament_python --node-name ws_control_node ihm_robot --dependencies rclpy std_msgs sensor_msgs geometry_msgs nav_msgs
+
+cd ~/ros2_ws/src/ihm_robot/ihm_robot/
 ```
 
 Copier ensuite le contenu du fichier :
@@ -331,65 +271,21 @@ vers :
 
 ### Terminal 5 - Compilation et lancement du noeud de controle
 
-Dans le conteneur ROS2 :
-
 ```bash
-export ROS_DOMAIN_ID=25
-
 cd ~/ros2_ws
 pip install requests websockets opencv-python mediapipe
-
 colcon build --packages-select ihm_robot
 source install/setup.bash
-
 ros2 run ihm_robot ws_control_node
 ```
 
 ---
 
-## 7. Commandes robot Python disponibles
+## 7. Camera RTSP
 
-Le dossier `robot/` contient aussi les noeuds Python executables directement.
+La procedure de lancement utilise un conteneur MediaMTX et une commande `ffmpeg` pour publier le flux camera RTSP.
 
-Installation :
-
-```bash
-cd ~/ihm-ros2/robot
-pip install -r requirements.txt
-source /opt/ros/humble/setup.bash
-```
-
-### En developpement
-
-Utiliser le port `5173` :
-
-```bash
-python3 telemetry_node.py --ros-args -p server_url:=http://ADRESSE_IP_SERVEUR:5173
-python3 control_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:5173
-python3 collision_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:5173
-SERVER_URL=ADRESSE_IP_SERVEUR:5173 python3 camera_node.py
-python3 sign_detection_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:5173
-```
-
-### En production
-
-Utiliser le port `3000` :
-
-```bash
-python3 telemetry_node.py --ros-args -p server_url:=http://ADRESSE_IP_SERVEUR:3000
-python3 control_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:3000
-python3 collision_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:3000
-SERVER_URL=ADRESSE_IP_SERVEUR:3000 python3 camera_node.py
-python3 sign_detection_node.py --ros-args -p server_url:=ADRESSE_IP_SERVEUR:3000
-```
-
----
-
-## 8. Camera RTSP historique
-
-Une ancienne procedure de camera RTSP peut etre utilisee si necessaire.
-
-Demarrer MediaMTX :
+### Terminal 6 - MediaMTX
 
 ```bash
 export ROS_DOMAIN_ID=25
@@ -398,40 +294,41 @@ cd ~/ihm-ros2
 sudo docker run --rm -it --network=host bluenviron/mediamtx:1
 ```
 
-Demarrer ensuite `ffmpeg` avec la camera :
+### Terminal 7 - ffmpeg
+
+Dans la procedure de reference, la commande exacte est recuperee avec :
 
 ```bash
-sudo ffmpeg \
-  -f v4l2 \
-  -s 640x480 \
-  -framerate 30 \
-  -i /dev/video0 \
-  -c:v libx264 \
-  -preset veryfast \
-  -tune zerolatency \
-  -f rtsp \
-  rtsp://localhost:8554/robot
+export ROS_DOMAIN_ID=25
+cd ~/ihm-ros2
+cat setup
 ```
 
-Cette procedure est separee du flux WebRTC implemente par `camera_node.py`.
+La commande attendue est de cette forme et doit etre lancee avec `sudo` :
+
+```bash
+sudo ffmpeg -f v4l2 -s 640x480 -framerate 30 -i /dev/video0 -c:v libx264 -preset veryfast -tune zerolatency -f rtsp rtsp://localhost:8554/robot
+```
 
 ---
 
-## 9. Ordre de demarrage recommande
+## 8. Ordre de demarrage recommande
 
 Pour une demonstration ou une remise client :
 
-1. Demarrer PostgreSQL : `npm run db:start`
-2. Construire l'application : `npm run build`
-3. Demarrer le serveur : `npm start`
-4. Demarrer l'agent MicroROS
-5. Demarrer les noeuds ROS2/Python
-6. Ouvrir le tableau de bord dans le navigateur
-7. Verifier que le robot est connecte et que les donnees arrivent
+1. Entrer dans le Docker ROS2 avec `sudo sh ~/script.sh`
+2. Demarrer l'agent MicroROS
+3. Creer ou verifier le package ROS2 `ihm_robot`
+4. Demarrer MediaMTX
+5. Demarrer `ffmpeg`
+6. Demarrer le serveur web
+7. Compiler et lancer `ws_control_node.py`
+8. Ouvrir le tableau de bord dans le navigateur
+9. Verifier que le robot est connecte et que les commandes repondent
 
 ---
 
-## 10. Depannage rapide
+## 9. Depannage rapide
 
 | Probleme | Verification |
 |---|---|
@@ -444,7 +341,7 @@ Pour une demonstration ou une remise client :
 
 ---
 
-## 11. Resume des commandes principales
+## 10. Resume des commandes principales
 
 ### Developpement
 

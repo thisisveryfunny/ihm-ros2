@@ -3,12 +3,20 @@ import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const VALID_DIRECTIONS = ['front', 'back', 'left', 'right', 'stop'];
+const VALID_SPEED_MODES = ['lent', 'normal', 'rapide'];
+const VALID_CAMERA_DIRECTIONS = ['up', 'down', 'left', 'right', 'stop'];
 
 function parseMessage(raw) {
 	try {
 		const msg = JSON.parse(raw);
 		if (msg.type === 'ping') return msg;
-		if (msg.type === 'command' && VALID_DIRECTIONS.includes(msg.direction)) return msg;
+		if (msg.type === 'command' && VALID_DIRECTIONS.includes(msg.direction)) {
+			return {
+				type: 'command',
+				direction: msg.direction,
+				speedMode: VALID_SPEED_MODES.includes(msg.speedMode) ? msg.speedMode : 'lent'
+			};
+		}
 		if (msg.type === 'webrtc-offer' && typeof msg.sdp === 'string') return msg;
 		if (msg.type === 'webrtc-answer' && typeof msg.sdp === 'string') return msg;
 		if (msg.type === 'webrtc-ice' && typeof msg.candidate === 'string') return msg;
@@ -20,11 +28,44 @@ function parseMessage(raw) {
 	}
 }
 
+function parseCameraMessage(raw) {
+	try {
+		const msg = JSON.parse(raw);
+		if (msg.type === 'ping') return { type: 'ping' };
+		if (msg.type === 'camera' && VALID_CAMERA_DIRECTIONS.includes(msg.direction)) {
+			return { type: 'camera', direction: msg.direction };
+		}
+		return null;
+	} catch {
+		return null;
+	}
+}
+
 const server = createServer(handler);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
+const cameraWss = new WebSocketServer({ noServer: true });
 
 const robots = new Set();
 const controllers = new Set();
+const cameraRobots = new Set();
+const cameraControllers = new Set();
+
+server.on('upgrade', (req, socket, head) => {
+	const { pathname } = new URL(req.url ?? '/', `http://${req.headers.host}`);
+	if (pathname === '/ws') {
+		wss.handleUpgrade(req, socket, head, (ws) => {
+			wss.emit('connection', ws, req);
+		});
+		return;
+	}
+	if (pathname === '/ws/camera') {
+		cameraWss.handleUpgrade(req, socket, head, (ws) => {
+			cameraWss.emit('connection', ws, req);
+		});
+		return;
+	}
+	socket.destroy();
+});
 
 function broadcast(targets, msg) {
 	const payload = JSON.stringify(msg);
@@ -67,7 +108,11 @@ wss.on('connection', (ws, req) => {
 			return;
 		}
 		if (msg.type === 'command') {
-			broadcast(robots, { type: 'command', direction: msg.direction });
+			broadcast(robots, {
+				type: 'command',
+				direction: msg.direction,
+				speedMode: msg.speedMode
+			});
 			return;
 		}
 		// WebRTC signaling relay
@@ -78,6 +123,43 @@ wss.on('connection', (ws, req) => {
 		// Robot status alerts → controllers
 		if (msg.type === 'collision-alert' || msg.type === 'sign-detected') {
 			broadcast(controllers, msg);
+		}
+	});
+});
+
+function sendCameraStatus() {
+	broadcast(cameraControllers, { type: 'status', connectedRobots: cameraRobots.size });
+}
+
+cameraWss.on('connection', (ws, req) => {
+	const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
+	const role = url.searchParams.get('role');
+
+	if (role === 'robot') {
+		cameraRobots.add(ws);
+		sendCameraStatus();
+		ws.on('close', () => {
+			cameraRobots.delete(ws);
+			sendCameraStatus();
+		});
+	} else {
+		cameraControllers.add(ws);
+		ws.send(JSON.stringify({ type: 'status', connectedRobots: cameraRobots.size }));
+		ws.on('close', () => cameraControllers.delete(ws));
+	}
+
+	ws.on('message', (data) => {
+		const msg = parseCameraMessage(data.toString());
+		if (!msg) {
+			ws.send(JSON.stringify({ type: 'error', message: 'Invalid message' }));
+			return;
+		}
+		if (msg.type === 'ping') {
+			ws.send(JSON.stringify({ type: 'pong' }));
+			return;
+		}
+		if (msg.type === 'camera') {
+			broadcast(cameraRobots, { type: 'camera', direction: msg.direction });
 		}
 	});
 });
