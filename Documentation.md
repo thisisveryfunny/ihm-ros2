@@ -1,209 +1,46 @@
-# Documentation de remise - Projet IHM ROS2
+# Guide de démarrage ROS 2 Robot IHM
 
-## 1. Objectif du projet
+Ce guide explique comment démarrer l'interface robot ROS 2, l'agent Micro-ROS, le serveur caméra, le noeud de détection IA, le serveur web et `ws_control_node`.
 
-Ce projet fournit une interface web de supervision et de controle pour un robot Yahboom MicroROS-Pi5.
+## Prérequis
 
-L'application permet de :
-
-- visualiser les donnees de telemetrie du robot : batterie, vitesse et IMU;
-- controler les mouvements du robot depuis le navigateur;
-- afficher les alertes de collision;
-- recevoir les evenements de detection de panneaux;
-- exposer une interface web accessible en reseau local ou via une mise en production.
-
-Le systeme est compose de quatre parties principales :
-
-| Composant | Role |
-|---|---|
-| Application web SvelteKit | Tableau de bord utilise par le client |
-| Serveur Node.js | Sert l'application, les API REST et le WebSocket `/ws` |
-| Base PostgreSQL | Stocke les donnees de telemetrie |
-| Noeuds ROS2/Python | Lisent les capteurs et pilotent le robot |
-
----
-
-## 2. Prerequis
-
-### Machine serveur / robot
-
-- Node.js 20 recommande
-- npm
-- Docker et Docker Compose
-- ROS2 Humble
-- Python 3.10+
-- Acces aux peripheriques du robot : camera, lidar, port serie MicroROS
-
----
-
-## 3. Répertoire GitHub 
-
-### Code source disponible sur GitHub
-https://github.com/thisisveryfunny/ihm-ros2
-
-Pour clôner le répertoire:
-```bash
-git clone https://github.com/thisisveryfunny/ihm-ros2.git
-```
----
-
-## 4. Execution en developpement avec `npm run dev`
-
-Le mode developpement sert pendant les tests, les demonstrations locales et les ajustements de l'interface.
-
-Commande :
+- Docker installé
+- Environnement ROS 2 disponible
+- Accès au périphérique série du robot, généralement `/dev/ttyUSB0`
+- Projet situé dans :
 
 ```bash
-cd ~/ihm-ros2
-npm run dev
+~/ihm-ros2
 ```
 
-Concretement, cela demarre le serveur Vite/SvelteKit en mode developpement.
-
-### Caracteristiques du mode developpement
-
-| Element | Description |
-|---|---|
-| Port par defaut | `5173` |
-| URL locale | `http://localhost:5173` |
-| Acces reseau | Active par `--host`, donc accessible depuis une autre machine du meme reseau |
-| WebSocket robot | Disponible sur `/ws` |
-| API REST | Disponible sur `/api/batterie`, `/api/vitesse`, `/api/imu` |
-| Usage recommande | Developpement et tests locaux uniquement |
-
-Apres le lancement, Vite affiche une sortie semblable a :
-
-```text
-Local:   http://localhost:5173/
-Network: http://192.168.x.x:5173/ ou http://10.10.211.x:5173/
-```
-
-Pour utiliser l'interface depuis un autre appareil du meme reseau, ouvrir l'URL `Network` dans le navigateur.
-
-### Point important pour le robot
-
-En mode developpement, le fichier `robot/ws_control_node.py` doit pointer vers l'adresse IP de la machine qui execute `npm run dev`, avec le port `5173`.
-
-Les valeurs a verifier dans `robot/ws_control_node.py` sont :
-
-```python
-WS_SERVER = "ws://ADRESSE_IP_SERVEUR:5173/ws?role=robot"
-WS_CAMERA_SERVER = "ws://ADRESSE_IP_SERVEUR:5173/ws/camera?role=robot"
-API_BASE = "http://ADRESSE_IP_SERVEUR:5173/api"
-```
-
-Remplacer `ADRESSE_IP_SERVEUR` par l'adresse IP reelle de la machine qui execute l'application web.
-
-Pour trouver l'adresse IP Wi-Fi du robot ou du serveur :
+Utiliser le même `ROS_DOMAIN_ID` dans tous les terminaux :
 
 ```bash
-ip -4 addr show wlan0 | awk '/inet / {print $2}' | cut -d/ -f1
+export ROS_DOMAIN_ID=25
 ```
 
-Si la connexion utilise Ethernet, remplacer `wlan0` par l'interface reseau correspondante, par exemple `eth0`.
+## 1. Entrer dans le Docker ROS 2
 
----
-
-## 5. Build production
-
-Le mode production doit etre utilise pour la remise client ou l'exploitation normale.
-
-Contrairement a `npm run dev`, il ne lance pas Vite en mode developpement. Il compile l'application dans le dossier `build/`, puis `server.js` sert cette version compilee avec le WebSocket de production.
-
-### 5.1 Construire l'application
-
-```bash
-npm run build
-```
-
-Cette commande execute :
-
-```bash
-vite build
-```
-
-Resultat attendu :
-
-- generation du dossier `build/`;
-- compilation de l'application SvelteKit;
-- preparation des fichiers necessaires au serveur Node.js de production.
-
-### 5.2 Demarrer le serveur production
-
-```bash
-npm start
-```
-
-Cette commande execute :
-
-```bash
-node server.js
-```
-
-Le serveur ecoute par defaut sur :
-
-```text
-http://0.0.0.0:3000
-```
-
-Depuis la machine locale :
-
-```text
-http://localhost:3000
-```
-
-Depuis un autre appareil du meme reseau :
-
-```text
-http://ADRESSE_IP_DU_SERVEUR:3000
-```
-
-### 5.3 Variables d'environnement production
-
-Le fichier `.env` recommande pour la production est :
-
-```bash
-DATABASE_URL=postgresql://ros2:ros2@localhost:5436/ros2
-PORT=3000
-HOST=0.0.0.0
-```
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | Connexion PostgreSQL utilisee par l'application |
-| `PORT` | Port HTTP du serveur de production |
-| `HOST` | Adresse d'ecoute. `0.0.0.0` permet l'acces depuis le reseau |
-
----
-
-## 6. Procedure complete de demarrage du robot
-
-Les etapes suivantes reprennent la procedure de lancement utilisee pour le robot.
-
-Source de reference des commandes robot :
-
-```text
-/Users/return/Obsidian/main/Yahboom_robot_commands.md
-```
-
-### Terminal 1 - Environnement ROS2 du robot
-
-Entrer dans l'environnement ROS2 Docker fourni sur le robot :
+Ouvrir **Terminal 1**.
 
 ```bash
 export ROS_DOMAIN_ID=25
 sudo sh ~/script.sh
 ```
 
-Cette etape peut prendre du temps.
+Cette étape peut prendre un certain temps.
 
-### Terminal 2 - Agent MicroROS
+## 2. Démarrer l'agent Micro-ROS
 
-Lancer l'agent MicroROS pour communiquer avec le controleur du robot :
+Ouvrir **Terminal 2**.
 
 ```bash
 export ROS_DOMAIN_ID=25
+```
 
+Lancer le conteneur Docker de l'agent Micro-ROS :
+
+```bash
 docker run -it --rm \
   -e ROS_DOMAIN_ID=25 \
   -v /dev:/dev \
@@ -216,166 +53,697 @@ docker run -it --rm \
   -v4
 ```
 
-Si le robot utilise un autre port serie, adapter `/dev/ttyUSB0`.
+Cela connecte ROS 2 au microcontrôleur via le port série.
 
-### Terminal 3 - Application web
+## 3. Créer le package ROS 2
 
-La procedure historique lance le serveur web en mode developpement :
+Dans **Terminal 1**, à l'intérieur du conteneur Docker ROS 2 :
 
 ```bash
 export ROS_DOMAIN_ID=25
-cd ~/ihm-ros2
-
-npm run dev
 ```
 
-Le tableau de bord est alors disponible sur le port `5173`.
-
-Pour une remise client en mode production, remplacer `npm run dev` par :
+Créer le workspace ROS 2 et le package :
 
 ```bash
-export ROS_DOMAIN_ID=25
-cd ~/ihm-ros2
-
-npm run build
-npm start
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
 ```
 
-Le tableau de bord est alors disponible sur le port `3000`.
+```bash
+ros2 pkg create \
+  --build-type ament_python \
+  --node-name ws_control_node \
+  ihm_robot \
+  --dependencies rclpy std_msgs sensor_msgs geometry_msgs nav_msgs
+```
 
-### Terminal 4 - Creation du package ROS2
-
-Dans le conteneur ROS2 ouvert au Terminal 1 :
+Aller dans le dossier du package Python :
 
 ```bash
-export ROS_DOMAIN_ID=25
-
-mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
-
-ros2 pkg create --build-type ament_python --node-name ws_control_node ihm_robot --dependencies rclpy std_msgs sensor_msgs geometry_msgs nav_msgs
-
 cd ~/ros2_ws/src/ihm_robot/ihm_robot/
 ```
 
-Copier ensuite le contenu du fichier :
+Copier le contenu du fichier situé à l'extérieur du Docker :
 
-```text
+```bash
 ~/ihm-ros2/robot/ws_control_node.py
 ```
 
-vers :
+Vers le fichier suivant dans le conteneur :
 
-```text
+```bash
 ~/ros2_ws/src/ihm_robot/ihm_robot/ws_control_node.py
 ```
 
-### Terminal 5 - Compilation et lancement du noeud de controle
+## 4. Vérifier l'adresse IP réseau
+
+Toujours vérifier l'adresse IP Ethernet ou Wi-Fi afin que l'interface web utilise la bonne adresse IP.
+
+Pour vérifier l'adresse IP Wi-Fi :
 
 ```bash
-cd ~/ros2_ws
-pip install requests websockets opencv-python mediapipe
-colcon build --packages-select ihm_robot
-source install/setup.bash
-ros2 run ihm_robot ws_control_node
+ip -4 addr show wlan0 | awk '/inet / {print $2}' | cut -d/ -f1
 ```
 
----
+Utiliser cette adresse IP pour configurer la connexion web.
 
-## 7. Camera RTSP
+Dans le fichier `robot/ws_control_node.py`, vérifier que les constantes suivantes pointent vers l'adresse IP du serveur web :
 
-La procedure de lancement utilise un conteneur MediaMTX et une commande `ffmpeg` pour publier le flux camera RTSP.
+```python
+WS_SERVER = "ws://10.10.211.145:5173/ws?role=robot"
+WS_CAMERA_SERVER = "ws://10.10.211.145:5173/ws/camera?role=robot"
+API_BASE = "http://10.10.211.145:5173/api"
+```
 
-### Terminal 6 - MediaMTX
+Remplacer `10.10.211.145` par l'adresse IP réelle du poste qui exécute `npm run dev`.
+
+## 5. Démarrer le conteneur Docker de la caméra
+
+Ouvrir **Terminal 3**.
 
 ```bash
 export ROS_DOMAIN_ID=25
 cd ~/ihm-ros2
-
-sudo docker run --rm -it --network=host bluenviron/mediamtx:1
 ```
 
-### Terminal 7 - ffmpeg
+Démarrer le serveur caméra MediaMTX :
 
-Dans la procedure de reference, la commande exacte est recuperee avec :
+```bash
+sudo docker run --rm -it \
+  --network=host \
+  bluenviron/mediamtx:1
+```
+
+## 6. Démarrer le noeud de détection IA
+
+Ouvrir **Terminal 4**.
+
+Aller dans le dossier du projet si nécessaire :
+
+```bash
+cd ~/ihm-ros2
+```
+
+Créer un environnement virtuel Python :
+
+```bash
+python3 -m venv myenv
+```
+
+Activer l'environnement virtuel :
+
+```bash
+source myenv/bin/activate
+```
+
+Sourcer ROS 2 Jazzy :
+
+```bash
+source /opt/ros/jazzy/setup.bash
+```
+
+Installer les dépendances Python :
+
+```bash
+pip install -r requirements.txt
+```
+
+Lancer le noeud de détection IA avec `sudo` tout en conservant l'environnement ROS :
+
+```bash
+sudo env \
+  PYTHONPATH="$PYTHONPATH" \
+  LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+  AMENT_PREFIX_PATH="$AMENT_PREFIX_PATH" \
+  CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
+  ROS_DISTRO="$ROS_DISTRO" \
+  ROS_VERSION="$ROS_VERSION" \
+  ROS_PYTHON_VERSION="$ROS_PYTHON_VERSION" \
+  /home/user/ihm-ros2/myenv/bin/python \
+  /home/user/ihm-ros2/ros2_ai_detector.py
+```
+
+## 7. Démarrer le serveur web
+
+Ouvrir un autre terminal.
 
 ```bash
 export ROS_DOMAIN_ID=25
 cd ~/ihm-ros2
-cat setup
 ```
 
-La commande attendue est de cette forme et doit etre lancee avec `sudo` :
+Démarrer le serveur de développement web :
 
 ```bash
-sudo ffmpeg -f v4l2 -s 640x480 -framerate 30 -i /dev/video0 -c:v libx264 -preset veryfast -tune zerolatency -f rtsp rtsp://localhost:8554/robot
-```
-
----
-
-## 8. Ordre de demarrage recommande
-
-Pour une demonstration ou une remise client :
-
-1. Entrer dans le Docker ROS2 avec `sudo sh ~/script.sh`
-2. Demarrer l'agent MicroROS
-3. Creer ou verifier le package ROS2 `ihm_robot`
-4. Demarrer MediaMTX
-5. Demarrer `ffmpeg`
-6. Demarrer le serveur web
-7. Compiler et lancer `ws_control_node.py`
-8. Ouvrir le tableau de bord dans le navigateur
-9. Verifier que le robot est connecte et que les commandes repondent
-
----
-
-## 9. Depannage rapide
-
-| Probleme | Verification |
-|---|---|
-| Le tableau de bord ne s'ouvre pas | Verifier que `npm run dev` ou `npm start` est actif |
-| Les donnees restent vides | Verifier PostgreSQL, `.env`, puis `npm run db:push` |
-| Le robot ne recoit pas les commandes | Verifier l'URL WebSocket, le port et l'adresse IP serveur |
-| Le navigateur ne rejoint pas le serveur | Verifier que `HOST=0.0.0.0` en production ou que `npm run dev` utilise bien `--host` |
-| Le port serie MicroROS echoue | Verifier le peripherique `/dev/ttyUSB0` |
-| La camera ne fonctionne pas | Verifier `/dev/video0` et qu'un seul processus utilise la camera |
-
----
-
-## 10. Resume des commandes principales
-
-### Developpement
-
-```bash
-npm install
-npm run db:start
-npm run db:push
 npm run dev
 ```
 
-Interface :
+Le serveur Vite écoute généralement sur le port `5173`. Les API HTTP et les WebSockets sont exposés sur ce même serveur.
 
-```text
-http://localhost:5173
-```
+## 8. Compiler et démarrer `ws_control_node`
 
-### Production
+Retourner dans **Terminal 1**, à l'intérieur du conteneur Docker ROS 2.
 
-```bash
-npm install
-npm run db:start
-npm run db:push
-npm run build
-npm start
-```
-
-Interface :
-
-```text
-http://localhost:3000
-```
-
-### Verification production
+Aller dans le workspace ROS 2 :
 
 ```bash
-curl http://localhost:3000/api/batterie
+cd ~/ros2_ws
+```
+
+Installer les dépendances Python nécessaires :
+
+```bash
+pip install requests websockets opencv-python mediapipe
+```
+
+Compiler le package ROS 2 :
+
+```bash
+colcon build --packages-select ihm_robot
+```
+
+Sourcer le workspace :
+
+```bash
+source install/setup.bash
+```
+
+Démarrer le noeud :
+
+```bash
+ros2 run ihm_robot ws_control_node
+```
+
+## API HTTP
+
+Les API HTTP servent à enregistrer et lire les données de télémétrie du robot dans PostgreSQL.
+
+URL de base en développement :
+
+```text
+http://<IP_SERVEUR_WEB>:5173/api
+```
+
+Exemple avec l'adresse IP présente dans `ws_control_node.py` :
+
+```text
+http://10.10.211.145:5173/api
+```
+
+Le noeud `ws_control_node` publie les données vers ces endpoints avec un délai minimal de `1` seconde par type de donnée.
+
+### `GET /api/batterie`
+
+Retourne toutes les mesures de batterie, triées de la plus récente à la plus ancienne.
+
+Exemple :
+
+```bash
+curl http://10.10.211.145:5173/api/batterie
+```
+
+Réponse :
+
+```json
+[
+  {
+    "id": 1,
+    "percentage": 85.5,
+    "createdAt": "2026-05-11T12:00:00.000Z"
+  }
+]
+```
+
+### `POST /api/batterie`
+
+Ajoute une mesure de batterie.
+
+Requête :
+
+```bash
+curl -X POST http://10.10.211.145:5173/api/batterie \
+  -H "Content-Type: application/json" \
+  -d '{"percentage":85.5}'
+```
+
+Corps JSON :
+
+```json
+{
+  "percentage": 85.5
+}
+```
+
+Réponse : ligne créée, avec le code HTTP `201`.
+
+### `GET /api/vitesse`
+
+Retourne toutes les mesures de vitesse, triées de la plus récente à la plus ancienne.
+
+Exemple :
+
+```bash
+curl http://10.10.211.145:5173/api/vitesse
+```
+
+Réponse :
+
+```json
+[
+  {
+    "id": 1,
+    "speed": 0.3,
+    "createdAt": "2026-05-11T12:00:00.000Z"
+  }
+]
+```
+
+### `POST /api/vitesse`
+
+Ajoute une mesure de vitesse linéaire.
+
+Requête :
+
+```bash
+curl -X POST http://10.10.211.145:5173/api/vitesse \
+  -H "Content-Type: application/json" \
+  -d '{"speed":0.3}'
+```
+
+Corps JSON :
+
+```json
+{
+  "speed": 0.3
+}
+```
+
+Réponse : ligne créée, avec le code HTTP `201`.
+
+### `GET /api/imu`
+
+Retourne toutes les mesures IMU, triées de la plus récente à la plus ancienne.
+
+Exemple :
+
+```bash
+curl http://10.10.211.145:5173/api/imu
+```
+
+Réponse :
+
+```json
+[
+  {
+    "id": 1,
+    "accelX": 0.01,
+    "accelY": 0.02,
+    "accelZ": 9.81,
+    "gyroX": 0.001,
+    "gyroY": 0.002,
+    "gyroZ": 0.003,
+    "createdAt": "2026-05-11T12:00:00.000Z"
+  }
+]
+```
+
+### `POST /api/imu`
+
+Ajoute une mesure IMU.
+
+Requête :
+
+```bash
+curl -X POST http://10.10.211.145:5173/api/imu \
+  -H "Content-Type: application/json" \
+  -d '{"accel_x":0.01,"accel_y":0.02,"accel_z":9.81,"gyro_x":0.001,"gyro_y":0.002,"gyro_z":0.003}'
+```
+
+Corps JSON :
+
+```json
+{
+  "accel_x": 0.01,
+  "accel_y": 0.02,
+  "accel_z": 9.81,
+  "gyro_x": 0.001,
+  "gyro_y": 0.002,
+  "gyro_z": 0.003
+}
+```
+
+Réponse : ligne créée, avec le code HTTP `201`.
+
+### Résumé des endpoints API
+
+| Méthode | Endpoint | Rôle | Corps attendu |
+|---|---|---|---|
+| `GET` | `/api/batterie` | Lire l'historique batterie | Aucun |
+| `POST` | `/api/batterie` | Enregistrer une mesure batterie | `{ "percentage": number }` |
+| `GET` | `/api/vitesse` | Lire l'historique vitesse | Aucun |
+| `POST` | `/api/vitesse` | Enregistrer une mesure vitesse | `{ "speed": number }` |
+| `GET` | `/api/imu` | Lire l'historique IMU | Aucun |
+| `POST` | `/api/imu` | Enregistrer une mesure IMU | `{ "accel_x": number, "accel_y": number, "accel_z": number, "gyro_x": number, "gyro_y": number, "gyro_z": number }` |
+
+## WebSockets
+
+Le serveur web expose deux WebSockets :
+
+| Endpoint | Rôle |
+|---|---|
+| `/ws` | Contrôle du déplacement, alertes robot et signalisation WebRTC |
+| `/ws/camera` | Contrôle des servomoteurs de caméra |
+
+Les connexions utilisent un paramètre `role` :
+
+| Rôle | Exemple | Description |
+|---|---|---|
+| `robot` | `ws://10.10.211.145:5173/ws?role=robot` | Connexion utilisée par `ws_control_node` |
+| `controller` | `ws://10.10.211.145:5173/ws?role=controller` | Connexion utilisée par l'interface web |
+
+Si `role` n'est pas `robot`, le serveur traite la connexion comme un contrôleur.
+
+Le serveur envoie un heartbeat WebSocket interne toutes les `30` secondes. Les clients applicatifs peuvent aussi envoyer `{ "type": "ping" }` et recevront `{ "type": "pong" }`.
+
+### WebSocket `/ws`
+
+Ce WebSocket sert au contrôle de déplacement et aux alertes robot.
+
+URL robot :
+
+```text
+ws://10.10.211.145:5173/ws?role=robot
+```
+
+URL interface web :
+
+```text
+ws://10.10.211.145:5173/ws?role=controller
+```
+
+#### Commande de déplacement
+
+Envoyée par le contrôleur, relayée vers les connexions robot.
+
+```json
+{
+  "type": "command",
+  "direction": "front",
+  "speedMode": "normal"
+}
+```
+
+Directions valides :
+
+```text
+front, back, left, right, stop
+```
+
+Modes de vitesse valides :
+
+```text
+lent, normal, rapide
+```
+
+Dans `ws_control_node`, les modes correspondent aux vitesses linéaires suivantes :
+
+| Mode | Vitesse linéaire |
+|---|---:|
+| `lent` | `0.3` |
+| `normal` | `0.5` |
+| `rapide` | `0.7` |
+
+Comportement ROS 2 côté robot :
+
+| Direction | Publication ROS 2 |
+|---|---|
+| `front` | `/cmd_vel`, `linear.x > 0`, sauf si obstacle détecté |
+| `back` | `/cmd_vel`, `linear.x < 0` |
+| `left` | `/cmd_vel`, `angular.z = 1.0` |
+| `right` | `/cmd_vel`, `angular.z = -1.0` |
+| `stop` | `/cmd_vel`, vitesse nulle |
+
+#### Statut de connexion
+
+Envoyé aux contrôleurs pour indiquer le nombre de robots connectés.
+
+```json
+{
+  "type": "status",
+  "connectedRobots": 1
+}
+```
+
+#### Ping applicatif
+
+Requête :
+
+```json
+{
+  "type": "ping"
+}
+```
+
+Réponse :
+
+```json
+{
+  "type": "pong"
+}
+```
+
+#### Alerte collision
+
+Envoyée par le robot, relayée vers les contrôleurs.
+
+```json
+{
+  "type": "collision-alert",
+  "distance": 0.25,
+  "blocked": true
+}
+```
+
+Le champ `blocked` vaut `true` quand un obstacle est détecté devant le robot, et `false` quand le passage redevient libre.
+
+#### Détection de panneau
+
+Le protocole accepte aussi un message de détection de panneau.
+
+```json
+{
+  "type": "sign-detected",
+  "sign": "stop"
+}
+```
+
+Valeurs valides pour `sign` :
+
+```text
+stop, up, down, left, right, null
+```
+
+#### Signalisation WebRTC
+
+Le WebSocket `/ws` relaie aussi les messages de signalisation WebRTC entre robot et contrôleur.
+
+Offre :
+
+```json
+{
+  "type": "webrtc-offer",
+  "sdp": "..."
+}
+```
+
+Réponse :
+
+```json
+{
+  "type": "webrtc-answer",
+  "sdp": "..."
+}
+```
+
+ICE candidate :
+
+```json
+{
+  "type": "webrtc-ice",
+  "candidate": "...",
+  "sdpMid": "0",
+  "sdpMLineIndex": 0
+}
+```
+
+### WebSocket `/ws/camera`
+
+Ce WebSocket est dédié au contrôle pan/tilt de la caméra. Il est séparé du contrôle de déplacement.
+
+URL robot :
+
+```text
+ws://10.10.211.145:5173/ws/camera?role=robot
+```
+
+URL interface web :
+
+```text
+ws://10.10.211.145:5173/ws/camera?role=controller
+```
+
+#### Commande caméra
+
+Envoyée par le contrôleur, relayée vers les connexions robot.
+
+```json
+{
+  "type": "camera",
+  "direction": "left"
+}
+```
+
+Directions valides :
+
+```text
+up, down, left, right, stop
+```
+
+Comportement ROS 2 côté robot :
+
+| Direction | Action |
+|---|---|
+| `left` | Déplace le servo pan vers la gauche |
+| `right` | Déplace le servo pan vers la droite |
+| `up` | Déplace le servo tilt vers le haut |
+| `down` | Déplace le servo tilt vers le bas |
+| `stop` | Arrête le mouvement des servos |
+
+Les commandes caméra publient sur les topics ROS 2 suivants :
+
+| Topic | Rôle |
+|---|---|
+| `/servo_s1` | Pan horizontal |
+| `/servo_s2` | Tilt vertical |
+
+#### Statut et ping caméra
+
+Le WebSocket caméra utilise les mêmes messages de statut et de ping que `/ws`.
+
+Statut :
+
+```json
+{
+  "type": "status",
+  "connectedRobots": 1
+}
+```
+
+Ping :
+
+```json
+{
+  "type": "ping"
+}
+```
+
+Pong :
+
+```json
+{
+  "type": "pong"
+}
+```
+
+#### Erreur de message
+
+Si un message JSON est invalide ou ne respecte pas le protocole, le serveur répond :
+
+```json
+{
+  "type": "error",
+  "message": "Invalid message"
+}
+```
+
+## Liens ROS 2 utilisés par `ws_control_node`
+
+| Type | Topic ROS 2 | Rôle |
+|---|---|---|
+| Publisher | `/cmd_vel` | Commandes de déplacement du robot |
+| Publisher | `/servo_s1` | Servo caméra pan |
+| Publisher | `/servo_s2` | Servo caméra tilt |
+| Subscriber | `/scan` | Détection d'obstacle frontal |
+| Subscriber | `/battery` | Mesure batterie |
+| Subscriber | `/imu` | Accélération et gyroscope |
+| Subscriber | `/odom_raw` | Vitesse linéaire |
+
+## Résumé des terminaux
+
+| Terminal | Rôle | Commande / Processus |
+|---|---|---|
+| Terminal 1 | Docker ROS 2 et `ws_control_node` | `sudo sh ~/script.sh`, puis compilation et lancement du package ROS |
+| Terminal 2 | Agent Micro-ROS | Conteneur Docker `microros/micro-ros-agent:humble` |
+| Terminal 3 | Serveur caméra | Conteneur Docker `bluenviron/mediamtx:1` |
+| Terminal 4 | Noeud de détection IA | `ros2_ai_detector.py` |
+| Terminal 5 | Serveur web | `npm run dev` |
+
+## Ordre de démarrage recommandé
+
+1. Entrer dans le conteneur Docker ROS 2.
+2. Démarrer l'agent Micro-ROS.
+3. Démarrer le serveur caméra.
+4. Démarrer le noeud de détection IA.
+5. Démarrer le serveur web.
+6. Compiler et lancer `ws_control_node`.
+
+## Vérifications utiles
+
+Vérifier que le périphérique série existe :
+
+```bash
+ls /dev/ttyUSB0
+```
+
+Vérifier le `ROS_DOMAIN_ID` :
+
+```bash
+echo $ROS_DOMAIN_ID
+```
+
+Vérifier l'adresse IP réseau du robot :
+
+```bash
+ip -4 addr show wlan0 | awk '/inet / {print $2}' | cut -d/ -f1
+```
+
+Vérifier les topics ROS 2 disponibles :
+
+```bash
+ros2 topic list
+```
+
+Vérifier les noeuds ROS 2 actifs :
+
+```bash
+ros2 node list
+```
+
+Tester l'API batterie :
+
+```bash
+curl http://10.10.211.145:5173/api/batterie
+```
+
+Tester l'API vitesse :
+
+```bash
+curl http://10.10.211.145:5173/api/vitesse
+```
+
+Tester l'API IMU :
+
+```bash
+curl http://10.10.211.145:5173/api/imu
 ```
