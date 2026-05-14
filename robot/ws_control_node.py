@@ -13,9 +13,9 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 
-WS_SERVER = "ws://10.10.211.145:5173/ws?role=robot"
-WS_CAMERA_SERVER = "ws://10.10.211.145:5173/ws/camera?role=robot"
-API_BASE = "http://10.10.211.145:5173/api"
+WS_SERVER = "ws://10.10.211.128:5173/ws?role=robot"
+WS_CAMERA_SERVER = "ws://10.10.211.128:5173/ws/camera?role=robot"
+API_BASE = "http://10.10.211.128:5173/api"
 THROTTLE_INTERVAL = 1.0  # seconds
 BATTERY_EMPTY_V = 6.0
 BATTERY_FULL_V = 8.4
@@ -42,10 +42,10 @@ SPEED_MODES = {
 }
 
 
-def convertir_batterie_pourcentage(raw: int) -> float:
+def battery_percentage_from_deci_volts(raw: int) -> tuple[float, float]:
     voltage = raw / 10.0
     percentage = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100
-    return max(0.0, min(100.0, percentage))
+    return voltage, max(0.0, min(100.0, percentage))
 
 
 class WSControlNode(Node):
@@ -54,14 +54,10 @@ class WSControlNode(Node):
         super().__init__("ws_control_node")
 
         self.cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
-        
         self.create_subscription(LaserScan, "/scan", self.scan_cb, 10)
         self.obstacle_front = False
-
         self.create_subscription(UInt16, "/battery", self.battery_cb, 10)
-        
         self.create_subscription(Imu, "/imu", self.imu_cb, 10)
-        
         self.create_subscription(Odometry, "/odom_raw", self.odom_cb, 10)
 
         # Yahboom pan/tilt servo publishers
@@ -152,19 +148,24 @@ class WSControlNode(Node):
                 })
             self.obstacle_front = False
 
-    # Batterie
+    # 🔋 Battery
     def battery_cb(self, msg):
         raw = msg.data
-        percentage = convertir_batterie_pourcentage(raw)
-        payload = {"percentage": float(percentage)}
-        self._post_throttled("batterie", payload)
+        voltage, percentage = battery_percentage_from_deci_volts(raw)
+        self.get_logger().info(
+            f"Battery raw={raw} voltage={voltage:.2f}V percentage={percentage:.1f}%"
+        )
 
-    # Vitesse
+        payload = {"percentage": float(percentage)}
+        if self._post_throttled("batterie", payload):
+            self.get_logger().info(f"Battery sent: {percentage:.1f}% ({voltage:.2f}V)")
+
+    # 🚗 Speed
     def odom_cb(self, msg):
         payload = {"speed": float(msg.twist.twist.linear.x)}
         self._post_throttled("vitesse", payload)
 
-    # IMU
+    # 🧭 IMU
     def imu_cb(self, msg):
         payload = {
             "accel_x": msg.linear_acceleration.x,
