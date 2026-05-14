@@ -1,346 +1,301 @@
 # IHM ROS2
 
-Real-time web dashboard and control system for a Yahboom MicroROS-Pi5 robot. Streams telemetry (battery, speed, IMU), provides remote movement control, live camera via WebRTC, collision avoidance, and AI-based sign detection.
+Tableau de bord web pour un robot Yahboom MicroROS-Pi5. L’application affiche la télémétrie du robot, permet le contrôle à distance des déplacements, contrôle les servos pan/tilt de la caméra, affiche un flux vidéo et remonte les alertes de collision.
 
-## Architecture Overview
+## Architecture actuelle
 
 ```
-+-------------------------------+          +-------------------------------+
-|        ROBOT (Pi5)            |          |      WEB SERVER (Node.js)     |
-|                               |          |                               |
-|  telemetry_node.py ----HTTP POST-------> |  /api/batterie                |
-|    /imu/data, /battery,       |          |  /api/vitesse    -> PostgreSQL|
-|    /odom, /imu/mag            |          |  /api/imu                     |
-|                               |          |                               |
-|  control_node.py <---WS cmd------------ |  /ws (WebSocket server)       |
-|    -> /cmd_vel                |          |    |                          |
-|                               |          |    | relay                    |
-|  collision_node.py            |          |    |                          |
-|    /scan -> /cmd_vel (stop)   |          |                               |
-|    -> /collision_blocked      |          +-------------------------------+
-|    ----WS collision-alert---> |                    ^     |
-|                               |                    |     |
-|  camera_node.py               |                    |     v
-|    /dev/video0 --WebRTC-------|----------->   +------------------+
-|    (peer-to-peer UDP video)   |               |    DASHBOARD     |
-|                               |               |    (Browser)     |
-|  sign_detection_node.py       |               |                  |
-|    /dev/video0 -> ORB match   |               |  - Telemetry     |
-|    -> /cmd_vel                |               |  - Controls      |
-|    ----WS sign-detected-----> |               |  - Video feed    |
-|                               |               |  - Alerts        |
-+-------------------------------+               +------------------+
++--------------------------------+          +--------------------------------+
+|          ROBOT (Pi5)           |          |      WEB SERVER (SvelteKit)    |
+|                                |          |                                |
+|  ws_control_node.py            |          |  REST API                      |
+|    /battery  ----HTTP POST----------->    |    /api/batterie               |
+|    /odom_raw ----HTTP POST----------->    |    /api/vitesse                |
+|    /imu      ----HTTP POST----------->    |    /api/imu                    |
+|                                |          |        |                       |
+|    /scan                       |          |        v                       |
+|    -> collision-alert --WS----------->    |  PostgreSQL                    |
+|                                |          |                                |
+|    <------------- WS command ---------    |  /ws                           |
+|    -> /cmd_vel                 |          |  déplacement + alertes         |
+|                                |          |                                |
+|    <------------- WS camera ----------    |  /ws/camera                    |
+|    -> /servo_s1, /servo_s2     |          |  contrôle pan/tilt caméra      |
+|                                |          +--------------------------------+
+|  ros2_ai_detector.py           |                         ^
+|    /dev/video0 -> MediaPipe    |                         |
+|    -> RTSP MediaMTX            |                         v
++--------------------------------+                  +--------------+
+                                                    |  DASHBOARD   |
+                                                    |  navigateur  |
+                                                    +--------------+
 ```
 
-## Project Structure
+Le dépôt ne contient plus des nodes séparés comme `telemetry_node.py`, `control_node.py`, `collision_node.py` ou `camera_node.py`. Les responsabilités robot principales sont maintenant regroupées dans `robot/ws_control_node.py`, avec un script séparé `robot/ros2_ai_detector.py` pour le flux caméra annoté.
+
+## Structure du projet
 
 ```
 ihm-ros2/
-├── src/                          # SvelteKit web app
-│   ├── lib/server/
-│   │   ├── db/                   # Drizzle ORM (schema + connection)
-│   │   └── ws/                   # WebSocket server (protocol + relay)
-│   └── routes/api/               # REST endpoints (batterie, vitesse, imu)
-├── robot/                        # Python ROS2 nodes (run on the robot)
-│   ├── telemetry_node.py         # Sensor data -> HTTP POST
-│   ├── control_node.py           # WS commands -> /cmd_vel
-│   ├── collision_node.py         # Lidar -> collision avoidance
-│   ├── camera_node.py            # Camera -> WebRTC stream
-│   └── sign_detection_node.py    # Camera -> sign detection -> /cmd_vel
-├── assets/                       # Reference images for sign detection
-├── db/                           # Docker Compose + init.sql for PostgreSQL
-├── server.js                     # Production server (HTTP + WebSocket)
-└── vite.config.ts                # Dev server with WebSocket plugin
+├── src/                          # Application SvelteKit
+│   ├── routes/                    # Pages dashboard et endpoints API
+│   │   ├── api/batterie/
+│   │   ├── api/vitesse/
+│   │   ├── api/imu/
+│   │   ├── battery/
+│   │   ├── speed/
+│   │   ├── imu/
+│   │   └── remote-control/
+│   ├── lib/server/db/             # Schéma Drizzle et connexion PostgreSQL
+│   ├── lib/server/ws/             # Protocoles WebSocket et relais
+│   ├── lib/services/              # Clients API et WebSocket côté navigateur
+│   └── lib/components/            # Composants UI, graphiques et contrôle robot
+├── robot/
+│   ├── ws_control_node.py         # Télémétrie, déplacement, collision, servos caméra
+│   ├── ros2_ai_detector.py        # Détection MediaPipe et stream RTSP via ffmpeg
+│   └── requirements.txt           # Dépendances Python robot
+├── db/
+│   ├── docker-compose.yml         # PostgreSQL local
+│   └── init.sql                   # Tables batterie, vitesse, imu
+├── docs/                          # Documentation complémentaire
+├── server.js                      # Serveur production HTTP + WebSocket
+└── vite.config.ts                 # Serveur dev avec WebSocket
 ```
 
----
+## Flux principaux
 
-## Data Flow Diagrams
+### Télémétrie
 
-### 1. Telemetry Flow (every 2 seconds)
-
-```
-   ROBOT                              SERVER                         DATABASE
-   -----                              ------                         --------
-   /imu/data ─┐
-   /imu/mag  ─┤
-   /battery  ─┼─> telemetry_node ──HTTP POST──> /api/batterie ──> batterie table
-   /odom     ─┘                                 /api/vitesse  ──> vitesse table
-                                                /api/imu      ──> imu table
-```
-
-The telemetry node caches the latest reading from each ROS2 topic and sends all three POST requests in a background thread every 2 seconds.
-
-### 2. Movement Control Flow
+`ws_control_node.py` lit les topics ROS 2, puis envoie les mesures vers les endpoints REST avec un délai minimal de `1` seconde par type de donnée.
 
 ```
-   DASHBOARD                    SERVER                      ROBOT
-   ---------                    ------                      -----
-   User presses key
-        |
-        v
-   { type: "command",      WS relay to
-     direction: "front" } ──────────────> control_node
-        |                                     |
-        |                                     v
-        |                               /cmd_vel (Twist)
-        |                                     |
-   User releases key                          v
-        |                                  MOTORS
-        v
-   { type: "command",
-     direction: "stop" } ───────────────> control_node
-                                              |
-                                              v
-                                         /cmd_vel = 0
+/battery  -> ws_control_node.py -> POST /api/batterie -> batterie
+/odom_raw -> ws_control_node.py -> POST /api/vitesse  -> vitesse
+/imu      -> ws_control_node.py -> POST /api/imu      -> imu
 ```
 
-### 3. Collision Detection Flow
+Les pages `battery`, `speed` et `imu` lisent ensuite ces données avec les endpoints `GET` et les affichent dans le dashboard.
+
+### Déplacement
 
 ```
-   ROBOT                                SERVER                   DASHBOARD
-   -----                                ------                   ---------
-   /scan (lidar)
-       |
-       v
-   collision_node
-       |
-       ├── obstacle < 0.3m?
-       |       |
-       |    YES |
-       |       v
-       |   /cmd_vel = STOP
-       |   /collision_blocked = true
-       |   WS { collision-alert, ───────> relay ──────> Alert shown
-       |        blocked: true }                         (user must
-       |                                                 re-press key)
-       |    NO (cleared)
-       |       v
-       |   /collision_blocked = false
-       |   WS { collision-alert, ───────> relay ──────> Alert cleared
-       |        blocked: false }
-       |
-       v
-   control_node checks /collision_blocked
-       |
-       ├── blocked = true?  -> ignore movement commands
-       └── blocked = false? -> pass commands to /cmd_vel
+Dashboard -> /ws -> ws_control_node.py -> /cmd_vel
 ```
 
-### 4. WebRTC Camera Stream Flow
+Le contrôleur envoie des messages `command` avec une `direction` et un `speedMode`. Le robot publie ensuite un message `geometry_msgs/Twist` sur `/cmd_vel`.
 
-```
-   DASHBOARD                    SERVER (signaling)              ROBOT
-   ---------                    ------------------              -----
-   Create RTCPeerConnection
-        |
-        v
-   { webrtc-offer, sdp } ────> relay ─────────────> camera_node
-                                                         |
-                                                    Open /dev/video0
-                                                    Create RTCPeerConnection
-                                                    Add video track
-                                                         |
-                                                         v
-   camera_node answer   <────── relay <──────── { webrtc-answer, sdp }
-        |
-        v
-   ICE candidates  <─────────> relay <──────────> ICE candidates
-        |                                              |
-        v                                              v
-   ╔═══════════════════════════════════════════════════════╗
-   ║        Direct peer-to-peer UDP video stream           ║
-   ║        (640x480, 30-60fps, H.264/VP8)                 ║
-   ╚═══════════════════════════════════════════════════════╝
+Directions valides:
+
+```text
+front, back, left, right, stop
 ```
 
-Once the WebRTC connection is established, video flows directly between browser and robot. The server is only used for the initial signaling handshake.
+Modes de vitesse valides:
 
-### 5. Sign Detection Flow
-
-```
-   ROBOT                                SERVER              DASHBOARD
-   -----                                ------              ---------
-   /dev/video0 (camera)
-       |
-       v
-   sign_detection_node
-       |
-   ORB feature matching
-   vs reference images:
-   ┌─────────────────────┐
-   │ stop-sign.jpg       │
-   │ up-arrow.jpg        │
-   │ down-arrow.jpg      │
-   │ left-arrow.jpg      │
-   │ right-arrow.jpg     │
-   └─────────────────────┘
-       |
-       ├── Match found (>= 15 good matches)?
-       |       |
-       |    YES |
-       |       v
-       |   /cmd_vel = corresponding direction
-       |   WS { sign-detected, ─────> relay ──────> Sign indicator
-       |        sign: "up" }                        shown on UI
-       |
-       |    NO (no sign)
-       |       v
-       |   Nothing published
-       |   WS { sign-detected, ─────> relay ──────> Indicator cleared
-       |        sign: null }
-       |
-       v
-   Dashboard commands OVERRIDE sign detection
-   (higher publish frequency to /cmd_vel)
+```text
+lent, normal, rapide
 ```
 
-### 6. Control Priority
+Correspondance actuelle dans `ws_control_node.py`:
 
-Multiple nodes can publish to `/cmd_vel`. Priority is determined by publish frequency:
+| Mode | Vitesse linéaire |
+|---|---:|
+| `lent` | `0.3` |
+| `normal` | `0.5` |
+| `rapide` | `0.7` |
 
-```
-   Priority (highest to lowest):
-   ┌─────────────────────────────────────────────────┐
-   │ 1. collision_node     Immediate stop on obstacle │
-   │    (overrides everything when blocked)           │
-   │                                                  │
-   │ 2. control_node       Dashboard keypresses       │
-   │    (publishes on every key event)                │
-   │                                                  │
-   │ 3. sign_detection_node  Sign-based commands      │
-   │    (publishes every 0.1s when sign detected)     │
-   └─────────────────────────────────────────────────┘
-```
+### Collision
 
-- **Collision** has absolute priority: stops the robot and blocks `control_node` via `/collision_blocked`
-- **Dashboard** overrides sign detection because keypresses generate commands more frequently
-- **Sign detection** acts as a fallback when no keys are pressed
-
----
-
-## WebSocket Protocol
-
-All communication goes through a single WebSocket at `/ws`.
-
-### Connection
-
-| Role | URL | Purpose |
-|---|---|---|
-| Robot | `ws://host/ws?role=robot` | Receive commands, send alerts |
-| Controller | `ws://host/ws?role=controller` | Send commands, receive alerts |
-
-### Message Types
-
-| Message | Direction | Description |
-|---|---|---|
-| `command` | Controller -> Robots | Movement: front/back/left/right/stop |
-| `status` | Server -> Controllers | Robot connection count |
-| `collision-alert` | Robot -> Controllers | Obstacle detected/cleared |
-| `sign-detected` | Robot -> Controllers | Sign recognized (or null) |
-| `webrtc-offer` | Controller -> Robot | WebRTC SDP offer |
-| `webrtc-answer` | Robot -> Controller | WebRTC SDP answer |
-| `webrtc-ice` | Bidirectional | WebRTC ICE candidate |
-| `ping` / `pong` | Bidirectional | Heartbeat |
-| `error` | Server -> Client | Invalid message notification |
-
-### Message Formats
+`ws_control_node.py` écoute `/scan` et vérifie la zone frontale. Si un obstacle est détecté à moins de `0.30 m`, le robot publie un arrêt sur `/cmd_vel` et envoie une alerte WebSocket aux contrôleurs.
 
 ```json
-{ "type": "command", "direction": "front" }
+{ "type": "collision-alert", "distance": 0.25, "blocked": true }
+```
+
+Quand la voie est libre, le même message est envoyé avec `blocked: false`.
+
+### Caméra et servos
+
+Le contrôle pan/tilt passe par un WebSocket dédié:
+
+```
+Dashboard -> /ws/camera -> ws_control_node.py -> /servo_s1, /servo_s2
+```
+
+Directions valides:
+
+```text
+up, down, left, right, stop
+```
+
+Le flux vidéo affiché dans `CameraFeed.svelte` ne passe pas par le WebSocket `/ws`. Il utilise WHEP vers MediaMTX:
+
+```text
+http://<VITE_CAMERA_HOST ou location.hostname>:8889/robot/whep
+```
+
+`ros2_ai_detector.py` lit la caméra, annote les frames avec MediaPipe (visage, mains, points de pieds) et les pousse vers un flux RTSP, par défaut:
+
+```text
+rtsp://127.0.0.1:8554/robot
+```
+
+## REST API
+
+| Méthode | Endpoint | Corps de requête | Réponse |
+|---|---|---|---|
+| POST | `/api/batterie` | `{ "percentage": 85.5 }` | `201` + ligne créée |
+| GET | `/api/batterie` | Aucun | Toutes les lectures, plus récentes en premier |
+| POST | `/api/vitesse` | `{ "speed": 1.23 }` | `201` + ligne créée |
+| GET | `/api/vitesse` | Aucun | Toutes les lectures, plus récentes en premier |
+| POST | `/api/imu` | `{ "accel_x": 0, "accel_y": 0, "accel_z": 0, "gyro_x": 0, "gyro_y": 0, "gyro_z": 0 }` | `201` + ligne créée |
+| GET | `/api/imu` | Aucun | Toutes les lectures, plus récentes en premier |
+
+Tous les enregistrements incluent un `id` et un `createdAt`.
+
+## Schéma de base de données
+
+```sql
+batterie (
+  id SERIAL PRIMARY KEY,
+  percentage REAL NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+vitesse (
+  id SERIAL PRIMARY KEY,
+  speed REAL NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+imu (
+  id SERIAL PRIMARY KEY,
+  accel_x REAL NOT NULL,
+  accel_y REAL NOT NULL,
+  accel_z REAL NOT NULL,
+  gyro_x REAL NOT NULL,
+  gyro_y REAL NOT NULL,
+  gyro_z REAL NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+```
+
+## WebSockets
+
+Le serveur expose deux WebSockets.
+
+| Endpoint | Rôle |
+|---|---|
+| `/ws` | Déplacement, statut robot, alertes collision, messages `sign-detected`, relais WebRTC générique |
+| `/ws/camera` | Contrôle des servos caméra |
+
+Les connexions utilisent le paramètre `role`:
+
+| Rôle | Exemple |
+|---|---|
+| Robot | `ws://host/ws?role=robot` |
+| Controller | `ws://host/ws?role=controller` |
+| Robot caméra | `ws://host/ws/camera?role=robot` |
+| Controller caméra | `ws://host/ws/camera?role=controller` |
+
+Si `role` n’est pas `robot`, le serveur traite la connexion comme un contrôleur.
+
+### Messages `/ws`
+
+```json
+{ "type": "command", "direction": "front", "speedMode": "normal" }
 { "type": "status", "connectedRobots": 1 }
-{ "type": "collision-alert", "distance": 0.15, "blocked": true }
+{ "type": "collision-alert", "distance": 0.25, "blocked": true }
 { "type": "sign-detected", "sign": "stop" }
 { "type": "sign-detected", "sign": null }
 { "type": "webrtc-offer", "sdp": "<SDP>" }
 { "type": "webrtc-answer", "sdp": "<SDP>" }
 { "type": "webrtc-ice", "candidate": "<candidate>", "sdpMid": "0", "sdpMLineIndex": 0 }
+{ "type": "ping" }
+{ "type": "pong" }
+{ "type": "error", "message": "Invalid message" }
 ```
 
----
+### Messages `/ws/camera`
 
-## REST API
+```json
+{ "type": "camera", "direction": "left" }
+{ "type": "status", "connectedRobots": 1 }
+{ "type": "ping" }
+{ "type": "pong" }
+{ "type": "error", "message": "Invalid message" }
+```
 
-| Method | Endpoint | Request Body | Response |
+## Topics ROS 2 utilisés
+
+| Type | Topic | Message | Utilisation |
 |---|---|---|---|
-| POST | `/api/batterie` | `{ "percentage": 85.5 }` | 201 + created row |
-| GET | `/api/batterie` | — | All readings (newest first) |
-| POST | `/api/vitesse` | `{ "speed": 1.23 }` | 201 + created row |
-| GET | `/api/vitesse` | — | All readings (newest first) |
-| POST | `/api/imu` | `{ "accel_x", ..., "mag_z" }` | 201 + created row |
-| GET | `/api/imu` | — | All readings (newest first) |
+| Publisher | `/cmd_vel` | `geometry_msgs/Twist` | Commandes de déplacement |
+| Publisher | `/servo_s1` | `std_msgs/Int32` | Servo pan caméra |
+| Publisher | `/servo_s2` | `std_msgs/Int32` | Servo tilt caméra |
+| Subscriber | `/scan` | `sensor_msgs/LaserScan` | Détection d’obstacle frontal |
+| Subscriber | `/battery` | `std_msgs/UInt16` | Batterie, convertie en pourcentage |
+| Subscriber | `/imu` | `sensor_msgs/Imu` | Accélération et gyroscope |
+| Subscriber | `/odom_raw` | `nav_msgs/Odometry` | Vitesse linéaire |
 
-All records include auto-generated `id` and `createdAt` (timestamptz).
+## Installation du serveur web
 
----
-
-## Database Schema
-
-```sql
-batterie (id SERIAL PK, percentage REAL, created_at TIMESTAMPTZ)
-vitesse  (id SERIAL PK, speed REAL, created_at TIMESTAMPTZ)
-imu      (id SERIAL PK, accel_x/y/z REAL, gyro_x/y/z REAL, mag_x/y/z REAL, created_at TIMESTAMPTZ)
-```
-
----
-
-## Setup
-
-### Prerequisites
+### Prérequis
 
 - Node.js 18+
-- Docker & Docker Compose
-- (Robot) ROS2 Humble, Python 3.10+
+- Docker et Docker Compose
+- PostgreSQL lancé avec le fichier `db/docker-compose.yml`
 
-### Web Server
+### Démarrage local
 
 ```sh
 npm install
 
-# Start database
+# Démarrer PostgreSQL
 npm run db:start
 
-# Create .env
+# Créer .env
 echo "DATABASE_URL=postgresql://ros2:ros2@localhost:5436/ros2" > .env
 
-# Push schema
+# Appliquer le schéma
 npm run db:push
 
-# Development
+# Démarrer le serveur de développement
 npm run dev
-
-# Production
-npm run build
-npm start    # Runs server.js on port 3000
 ```
 
-### Robot Nodes
+Le serveur Vite écoute généralement sur `http://localhost:5173`. Les endpoints API et les WebSockets sont exposés sur le même serveur.
+
+### Production
 
 ```sh
-cd robot/
-pip install -r requirements.txt
-source /opt/ros/humble/setup.bash
-
-# Run all nodes (in separate terminals)
-python3 telemetry_node.py
-python3 control_node.py
-python3 collision_node.py
-python3 camera_node.py
-python3 sign_detection_node.py
+npm run build
+npm start
 ```
 
-See [robot/README.md](robot/README.md) for detailed node documentation, parameters, and testing instructions.
+`npm start` lance `server.js`, qui sert l’application et attache les WebSockets.
 
----
+## Démarrage côté robot
 
-## ROS2 Topics
+Les étapes complètes de démarrage ROS 2, Micro-ROS, MediaMTX, `ros2_ai_detector.py` et `ws_control_node.py` sont documentées dans [Documentation.md](Documentation.md).
 
-| Topic | Type | Published By | Subscribed By |
-|---|---|---|---|
-| `/cmd_vel` | `geometry_msgs/Twist` | control, collision, sign_detection | Motor driver |
-| `/imu/data` | `sensor_msgs/Imu` | IMU hardware | telemetry |
-| `/imu/mag` | `sensor_msgs/MagneticField` | IMU hardware | telemetry |
-| `/battery` | `std_msgs/Float32` | Battery monitor | telemetry |
-| `/odom/unfiltered` | `nav_msgs/Odometry` | Wheel encoders | telemetry |
-| `/scan` | `sensor_msgs/LaserScan` | MS200 lidar | collision |
-| `/collision_blocked` | `std_msgs/Bool` | collision | control |
+Points importants:
+
+- Configurer `WS_SERVER`, `WS_CAMERA_SERVER` et `API_BASE` dans `robot/ws_control_node.py` avec l’adresse IP du serveur web.
+- Utiliser le même `ROS_DOMAIN_ID` dans les terminaux ROS 2.
+- Démarrer MediaMTX pour exposer le flux WHEP utilisé par le dashboard.
+- Lancer `ws_control_node.py` dans un package ROS 2 ou avec l’environnement ROS 2 correctement sourcé.
+
+## Variables utiles
+
+| Variable | Utilisation |
+|---|---|
+| `DATABASE_URL` | Connexion PostgreSQL utilisée par Drizzle et les routes API |
+| `VITE_WS_URL` | Base WebSocket optionnelle côté navigateur, sinon `location.host` est utilisé |
+| `VITE_CAMERA_HOST` | Hôte optionnel pour le flux WHEP MediaMTX, sinon `location.hostname` est utilisé |
+
+## Documentation complémentaire
+
+- [Documentation.md](Documentation.md): guide de démarrage complet robot + serveur
+- [docs/deployment.md](docs/deployment.md): notes de déploiement
+- [docs/architecture.md](docs/architecture.md): documentation d’architecture plus détaillée, à valider si l’architecture change encore

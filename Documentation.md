@@ -1,6 +1,6 @@
-# Guide de démarrage ROS 2 Robot IHM
+# Guide de démarrage ROS 2 du robot IHM
 
-Ce guide explique comment démarrer l'interface robot ROS 2, l'agent Micro-ROS, le serveur caméra, le noeud de détection IA, le serveur web et `ws_control_node`.
+Ce guide explique comment démarrer l'interface du robot ROS 2, l'agent Micro-ROS, le serveur de caméra, le nœud de détection IA, le serveur web et `ws_control_node`.
 
 ## Prérequis
 
@@ -19,7 +19,7 @@ Utiliser le même `ROS_DOMAIN_ID` dans tous les terminaux :
 export ROS_DOMAIN_ID=25
 ```
 
-## 1. Entrer dans le Docker ROS 2
+## 1. Entrer dans le conteneur Docker ROS 2
 
 Ouvrir **Terminal 1**.
 
@@ -63,7 +63,7 @@ Dans **Terminal 1**, à l'intérieur du conteneur Docker ROS 2 :
 export ROS_DOMAIN_ID=25
 ```
 
-Créer le workspace ROS 2 et le package :
+Créer l'espace de travail ROS 2 et le package :
 
 ```bash
 mkdir -p ~/ros2_ws/src
@@ -84,13 +84,13 @@ Aller dans le dossier du package Python :
 cd ~/ros2_ws/src/ihm_robot/ihm_robot/
 ```
 
-Copier le contenu du fichier situé à l'extérieur du Docker :
+Copier le contenu du fichier situé à l'extérieur du conteneur Docker :
 
 ```bash
 ~/ihm-ros2/robot/ws_control_node.py
 ```
 
-Vers le fichier suivant dans le conteneur :
+Le copier vers le fichier suivant, dans le conteneur :
 
 ```bash
 ~/ros2_ws/src/ihm_robot/ihm_robot/ws_control_node.py
@@ -98,7 +98,7 @@ Vers le fichier suivant dans le conteneur :
 
 ## 4. Vérifier l'adresse IP réseau
 
-Toujours vérifier l'adresse IP Ethernet ou Wi-Fi afin que l'interface web utilise la bonne adresse IP.
+Vérifier toujours l'adresse IP Ethernet ou Wi-Fi afin que l'interface web utilise la bonne adresse IP.
 
 Pour vérifier l'adresse IP Wi-Fi :
 
@@ -127,7 +127,7 @@ export ROS_DOMAIN_ID=25
 cd ~/ihm-ros2
 ```
 
-Démarrer le serveur caméra MediaMTX :
+Démarrer le serveur de caméra MediaMTX :
 
 ```bash
 sudo docker run --rm -it \
@@ -135,7 +135,7 @@ sudo docker run --rm -it \
   bluenviron/mediamtx:1
 ```
 
-## 6. Démarrer le noeud de détection IA
+## 6. Démarrer le nœud de détection IA
 
 Ouvrir **Terminal 4**.
 
@@ -169,7 +169,7 @@ Installer les dépendances Python :
 pip install -r requirements.txt
 ```
 
-Lancer le noeud de détection IA avec `sudo` tout en conservant l'environnement ROS :
+Lancer le nœud de détection IA avec `sudo` tout en conservant l'environnement ROS :
 
 ```bash
 sudo env \
@@ -199,13 +199,13 @@ Démarrer le serveur de développement web :
 npm run dev
 ```
 
-Le serveur Vite écoute généralement sur le port `5173`. Les API HTTP et les WebSockets sont exposés sur ce même serveur.
+Le serveur Vite écoute généralement sur le port `5173`. Les API HTTP et les WebSockets sont exposés par ce même serveur.
 
 ## 8. Compiler et démarrer `ws_control_node`
 
 Retourner dans **Terminal 1**, à l'intérieur du conteneur Docker ROS 2.
 
-Aller dans le workspace ROS 2 :
+Aller dans l'espace de travail ROS 2 :
 
 ```bash
 cd ~/ros2_ws
@@ -223,13 +223,13 @@ Compiler le package ROS 2 :
 colcon build --packages-select ihm_robot
 ```
 
-Sourcer le workspace :
+Sourcer l'espace de travail :
 
 ```bash
 source install/setup.bash
 ```
 
-Démarrer le noeud :
+Démarrer le nœud :
 
 ```bash
 ros2 run ihm_robot ws_control_node
@@ -237,7 +237,7 @@ ros2 run ihm_robot ws_control_node
 
 ## API HTTP
 
-Les API HTTP servent à enregistrer et lire les données de télémétrie du robot dans PostgreSQL.
+Les API HTTP servent à enregistrer et à lire les données de télémétrie du robot dans PostgreSQL.
 
 URL de base en développement :
 
@@ -251,11 +251,11 @@ Exemple avec l'adresse IP présente dans `ws_control_node.py` :
 http://10.10.211.145:5173/api
 ```
 
-Le noeud `ws_control_node` publie les données vers ces endpoints avec un délai minimal de `1` seconde par type de donnée.
+Le nœud `ws_control_node` publie les données vers ces points de terminaison avec un délai minimal de `1` seconde par type de donnée.
 
 ### `GET /api/batterie`
 
-Retourne toutes les mesures de batterie, triées de la plus récente à la plus ancienne.
+Renvoie toutes les mesures de batterie, triées de la plus récente à la plus ancienne.
 
 Exemple :
 
@@ -299,7 +299,7 @@ Réponse : ligne créée, avec le code HTTP `201`.
 
 ### `GET /api/vitesse`
 
-Retourne toutes les mesures de vitesse, triées de la plus récente à la plus ancienne.
+Renvoie toutes les mesures de vitesse, triées de la plus récente à la plus ancienne.
 
 Exemple :
 
@@ -343,7 +343,7 @@ Réponse : ligne créée, avec le code HTTP `201`.
 
 ### `GET /api/imu`
 
-Retourne toutes les mesures IMU, triées de la plus récente à la plus ancienne.
+Renvoie toutes les mesures IMU, triées de la plus récente à la plus ancienne.
 
 Exemple :
 
@@ -395,14 +395,14 @@ Corps JSON :
 
 Réponse : ligne créée, avec le code HTTP `201`.
 
-### Résumé des endpoints API
+### Résumé des points de terminaison de l'API
 
-| Méthode | Endpoint | Rôle | Corps attendu |
+| Méthode | Point de terminaison | Rôle | Corps attendu |
 |---|---|---|---|
-| `GET` | `/api/batterie` | Lire l'historique batterie | Aucun |
-| `POST` | `/api/batterie` | Enregistrer une mesure batterie | `{ "percentage": number }` |
-| `GET` | `/api/vitesse` | Lire l'historique vitesse | Aucun |
-| `POST` | `/api/vitesse` | Enregistrer une mesure vitesse | `{ "speed": number }` |
+| `GET` | `/api/batterie` | Lire l'historique de la batterie | Aucun |
+| `POST` | `/api/batterie` | Enregistrer une mesure de batterie | `{ "percentage": number }` |
+| `GET` | `/api/vitesse` | Lire l'historique de la vitesse | Aucun |
+| `POST` | `/api/vitesse` | Enregistrer une mesure de vitesse | `{ "speed": number }` |
 | `GET` | `/api/imu` | Lire l'historique IMU | Aucun |
 | `POST` | `/api/imu` | Enregistrer une mesure IMU | `{ "accel_x": number, "accel_y": number, "accel_z": number, "gyro_x": number, "gyro_y": number, "gyro_z": number }` |
 
@@ -410,9 +410,9 @@ Réponse : ligne créée, avec le code HTTP `201`.
 
 Le serveur web expose deux WebSockets :
 
-| Endpoint | Rôle |
+| Point de terminaison | Rôle |
 |---|---|
-| `/ws` | Contrôle du déplacement, alertes robot et signalisation WebRTC |
+| `/ws` | Contrôle du déplacement, alertes du robot et signalisation WebRTC |
 | `/ws/camera` | Contrôle des servomoteurs de caméra |
 
 Les connexions utilisent un paramètre `role` :
@@ -424,19 +424,19 @@ Les connexions utilisent un paramètre `role` :
 
 Si `role` n'est pas `robot`, le serveur traite la connexion comme un contrôleur.
 
-Le serveur envoie un heartbeat WebSocket interne toutes les `30` secondes. Les clients applicatifs peuvent aussi envoyer `{ "type": "ping" }` et recevront `{ "type": "pong" }`.
+Le serveur envoie un signal de vie WebSocket interne toutes les `30` secondes. Les clients applicatifs peuvent aussi envoyer `{ "type": "ping" }` et recevront `{ "type": "pong" }`.
 
 ### WebSocket `/ws`
 
-Ce WebSocket sert au contrôle de déplacement et aux alertes robot.
+Ce WebSocket sert au contrôle de déplacement et aux alertes du robot.
 
-URL robot :
+URL du robot :
 
 ```text
 ws://10.10.211.145:5173/ws?role=robot
 ```
 
-URL interface web :
+URL de l'interface web :
 
 ```text
 ws://10.10.211.145:5173/ws?role=controller
@@ -444,7 +444,7 @@ ws://10.10.211.145:5173/ws?role=controller
 
 #### Commande de déplacement
 
-Envoyée par le contrôleur, relayée vers les connexions robot.
+Envoyée par le contrôleur, puis relayée vers les connexions du robot.
 
 ```json
 {
@@ -515,7 +515,7 @@ Réponse :
 
 #### Alerte collision
 
-Envoyée par le robot, relayée vers les contrôleurs.
+Envoyée par le robot, puis relayée vers les contrôleurs.
 
 ```json
 {
@@ -566,7 +566,7 @@ Réponse :
 }
 ```
 
-ICE candidate :
+Candidat ICE :
 
 ```json
 {
@@ -581,21 +581,21 @@ ICE candidate :
 
 Ce WebSocket est dédié au contrôle pan/tilt de la caméra. Il est séparé du contrôle de déplacement.
 
-URL robot :
+URL du robot :
 
 ```text
 ws://10.10.211.145:5173/ws/camera?role=robot
 ```
 
-URL interface web :
+URL de l'interface web :
 
 ```text
 ws://10.10.211.145:5173/ws/camera?role=controller
 ```
 
-#### Commande caméra
+#### Commande de caméra
 
-Envoyée par le contrôleur, relayée vers les connexions robot.
+Envoyée par le contrôleur, puis relayée vers les connexions du robot.
 
 ```json
 {
@@ -620,16 +620,16 @@ Comportement ROS 2 côté robot :
 | `down` | Déplace le servo tilt vers le bas |
 | `stop` | Arrête le mouvement des servos |
 
-Les commandes caméra publient sur les topics ROS 2 suivants :
+Les commandes de caméra publient sur les topics ROS 2 suivants :
 
 | Topic | Rôle |
 |---|---|
 | `/servo_s1` | Pan horizontal |
 | `/servo_s2` | Tilt vertical |
 
-#### Statut et ping caméra
+#### Statut et ping de la caméra
 
-Le WebSocket caméra utilise les mêmes messages de statut et de ping que `/ws`.
+Le WebSocket de caméra utilise les mêmes messages de statut et de ping que `/ws`.
 
 Statut :
 
@@ -672,10 +672,10 @@ Si un message JSON est invalide ou ne respecte pas le protocole, le serveur rép
 | Type | Topic ROS 2 | Rôle |
 |---|---|---|
 | Publisher | `/cmd_vel` | Commandes de déplacement du robot |
-| Publisher | `/servo_s1` | Servo caméra pan |
-| Publisher | `/servo_s2` | Servo caméra tilt |
-| Subscriber | `/scan` | Détection d'obstacle frontal |
-| Subscriber | `/battery` | Mesure batterie |
+| Publisher | `/servo_s1` | Servo pan de la caméra |
+| Publisher | `/servo_s2` | Servo tilt de la caméra |
+| Subscriber | `/scan` | Détection d'un obstacle frontal |
+| Subscriber | `/battery` | Mesure de la batterie |
 | Subscriber | `/imu` | Accélération et gyroscope |
 | Subscriber | `/odom_raw` | Vitesse linéaire |
 
@@ -683,18 +683,18 @@ Si un message JSON est invalide ou ne respecte pas le protocole, le serveur rép
 
 | Terminal | Rôle | Commande / Processus |
 |---|---|---|
-| Terminal 1 | Docker ROS 2 et `ws_control_node` | `sudo sh ~/script.sh`, puis compilation et lancement du package ROS |
+| Terminal 1 | Conteneur Docker ROS 2 et `ws_control_node` | `sudo sh ~/script.sh`, puis compilation et lancement du package ROS |
 | Terminal 2 | Agent Micro-ROS | Conteneur Docker `microros/micro-ros-agent:humble` |
-| Terminal 3 | Serveur caméra | Conteneur Docker `bluenviron/mediamtx:1` |
-| Terminal 4 | Noeud de détection IA | `ros2_ai_detector.py` |
+| Terminal 3 | Serveur de caméra | Conteneur Docker `bluenviron/mediamtx:1` |
+| Terminal 4 | Nœud de détection IA | `ros2_ai_detector.py` |
 | Terminal 5 | Serveur web | `npm run dev` |
 
 ## Ordre de démarrage recommandé
 
 1. Entrer dans le conteneur Docker ROS 2.
 2. Démarrer l'agent Micro-ROS.
-3. Démarrer le serveur caméra.
-4. Démarrer le noeud de détection IA.
+3. Démarrer le serveur de caméra.
+4. Démarrer le nœud de détection IA.
 5. Démarrer le serveur web.
 6. Compiler et lancer `ws_control_node`.
 
@@ -724,7 +724,7 @@ Vérifier les topics ROS 2 disponibles :
 ros2 topic list
 ```
 
-Vérifier les noeuds ROS 2 actifs :
+Vérifier les nœuds ROS 2 actifs :
 
 ```bash
 ros2 node list
