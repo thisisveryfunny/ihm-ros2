@@ -3,7 +3,7 @@
 Le projet comporte une interface Web appelée interface "homme-machine" et ça permet de visualiser toutes les données enregistrées par le robot ainsi que la visualisation de la caméra, le contrôle des mouvements des robots et le contrôle de la caméra.
 
 ## Onglets disponibles
-Sur l'interface Web, il y a 4 onglets différents. 
+Sur l'interface Web, il y a 5 onglets différents. 
 - Vue d'ensemble
 - Vitesse
 - Inertiel (IMU)
